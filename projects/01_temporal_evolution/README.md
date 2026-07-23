@@ -78,9 +78,11 @@ Topic color is scientific subject matter. Placement inside an anatomical scaffol
 
 Entering a form does not freeze the chronology. New literature approaches from a surrounding 3D semantic shell, spirals into its final location, and briefly raises the structure’s firing state. Activity is seeded at high-degree graph hubs and phase-offset by shortest-hop distance through the scaffold’s actual edge graph. Stochastic recruitment keeps the response event-like: it is triggered by arriving publications, not a looping radial wave.
 
-Semantic formations are not hand-drawn bubbles. Theme-conditioned HDBSCAN detects density-stable neighborhoods in the global manifold; cluster-specific MeSH/keyword evidence is scored against a fixed, inspectable neuroscience formation ontology so administrative tags cannot become formation names. Irregular constellation filaments appear only after a formation’s emergence threshold.
+The anatomical or computational scaffold has its own density-balanced structural light: crisp baseline nodes, a low halo, and brighter edges remain visible before any paper arrives. This baseline is independent of dynamic firing, so stronger template legibility does not inflate activation intensity.
 
-The overview preserves one global stream of 62 formations. Focus mode performs a second, independent analysis for each entity: a paper needs a strong form association plus explicit entity evidence in its title, MeSH, or keywords before it can shape that entity’s formation history. The packaged focus analyses contain 10 gradient, 12 fungal, 10 *C. elegans*, 18 *Drosophila*, 26 rodent, 14 macaque, 29 human, and 8 AI formations. Papers without a stable entity-specific neighborhood remain visible but cannot lend a global or cross-species label to the focused body.
+Semantic formations are not hand-drawn bubbles. Theme-conditioned HDBSCAN detects density-stable neighborhoods in the global manifold; cluster-specific MeSH/keyword evidence is scored against a fixed, inspectable neuroscience formation ontology so administrative tags cannot become formation names. Emergence is the first repeatable evidence body, scaled to formation size instead of a late fixed percentile. Entity histories require at least three supporting papers. Before stable separation, the focus view names the historically grounded pioneering evidence phase rather than incorrectly calling decades “pre-formation.”
+
+The overview preserves one global stream of 66 formations. Focus mode performs a second, independent analysis for each entity: a paper needs a strong form association plus explicit entity evidence in its title, MeSH, or keywords before it can shape that entity’s formation history. The packaged focus analyses contain 11 gradient, 9 fungal, 9 *C. elegans*, 15 *Drosophila*, 24 rodent, 13 macaque, 30 human, and 21 AI formations. Papers without a stable entity-specific neighborhood remain visible but cannot lend a global or cross-species label to the focused body.
 
 ## Actual structures, without distortion
 
@@ -102,8 +104,9 @@ The compact browser geometry contains 5,000 source-derived points for each biolo
 ## Corpus, scale, and embedding
 
 - **3.13 million PubMed query matches** across the annual 1976–2026 field drive aggregate publication density, the timeline histogram, and the loudness trajectory
-- **7,338 real PubMed records** are individually embedded in the packaged build
+- **8,581 real PubMed records** are individually embedded in the packaged build
 - the embedded corpus combines deterministic per-year coverage with targeted gradient, fungal, *C. elegans*, *Drosophila*, macaque, and NeuroAI material
+- the dedicated neuroscience-AI query has **77,237 PubMed matches** and contributes a deterministic 1,600-paper target sample; 1,258 papers pass the stricter AI entity-formation rule and 1,809 inhabit the interactive AI body
 - abstracts stream through NCBI E-utilities
 - every title + abstract + compact MeSH context is embedded with `openai/text-embedding-3-large` through OpenRouter at 256 dimensions
 - one global projection: L2 normalization → PCA(32) → UMAP(3) → restrained topic-topology blend
@@ -130,9 +133,9 @@ The eight voices are:
 7. a detuned human formant choir
 8. a morphing AI voice that borrows interval motifs from biological voices
 
-Interconnectedness combines semantic-neighbor edges, cross-theme bridges, density, cumulative growth, and active formations. As it increases, dispersed scale tones converge toward common chord tones, detuning narrows, stereo voices cohere, and reverb/delay deepen. Publication volume raises orchestral density and mastered gain through a compressor, so the late literature feels larger without clipping.
+Interconnectedness combines semantic-neighbor edges, cross-theme bridges, density, cumulative growth, and active formations. As it increases, deterministic voice-leading pulls all eight timbres toward a shared four-note chord field, detuning narrows, stereo voices cohere, and a quiet three-part harmonic bed becomes audible. Delays recede as the voices integrate while reverb and a shared low-pass master contour widen the common space. Publication volume raises orchestral density and mastered gain through a compressor, so the late literature feels larger without clipping.
 
-The score has a 178-second data ascent—sparse formation, accelerating tension, and a high-interconnection climax—followed by a twelve-second resolving coda at 2026. At the endpoint, a five-part D-centered synth field slowly forces detuning and stereo width toward a common harmonic body while a long low-pass envelope opens and closes around it. Playback speed changes the event clock coherently; seeking kills the old harmonic tail before rebuilding the score from the selected year, and pausing freezes both visual phase and sound rather than letting either timeline drift.
+The score has a 178-second data ascent—sparse formation, accelerating tension, and a high-interconnection climax—followed by an exact ten-second resolving coda at 2026. At the endpoint, the timeline holds while all detected formations converge and a five-part D-centered synth field forces detuning and stereo width toward one harmonic body. The full work then restarts automatically. Playback speed multiplies the timeline, visual formation clock, and musical scheduler by the same factor; seeking kills the old harmonic tail before rebuilding the score from the selected year, and pausing freezes both visual phase and sound rather than letting either timeline drift.
 
 ## Temporal landmarks
 
@@ -168,7 +171,7 @@ The OpenRouter key is read from the project-level `.env` outside this artwork. I
 ```bash
 python3 -m pip install -r requirements.txt
 python3 -m pipeline.build_templates
-python3 build_data.py --papers-per-year 104 --targeted-per-form 350 --force
+python3 build_data.py --papers-per-year 104 --targeted-per-form 350 --targeted-ai 1600 --force
 npm run build
 ```
 

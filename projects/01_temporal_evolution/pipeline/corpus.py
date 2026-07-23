@@ -46,7 +46,44 @@ TARGET_QUERIES = {
     "elegans": '("Caenorhabditis elegans"[Title/Abstract] OR "C. elegans"[Title/Abstract]) AND (neuron*[Title/Abstract] OR nervous[Title/Abstract] OR behavio*[Title/Abstract])',
     "drosophila": '(drosophila[Title/Abstract] OR "fruit fly"[Title/Abstract]) AND (brain[Title/Abstract] OR neuron*[Title/Abstract] OR connectom*[Title/Abstract] OR behavio*[Title/Abstract])',
     "macaque": '(macaque[Title/Abstract] OR "Macaca mulatta"[Title/Abstract] OR "rhesus monkey"[Title/Abstract]) AND (brain[Title/Abstract] OR neural[Title/Abstract] OR cortex[Title/Abstract])',
-    "ai": '(("artificial neural network"[Title/Abstract] OR "deep neural network"[Title/Abstract] OR transformer[Title/Abstract] OR neuroAI[Title/Abstract] OR neuromorphic[Title/Abstract]) AND (brain[Title/Abstract] OR neuroscien*[Title/Abstract] OR cognit*[Title/Abstract] OR neural[Title/Abstract]))',
+    "ai": '''(
+        "Artificial Intelligence"[MeSH Terms]
+        OR "Machine Learning"[MeSH Terms]
+        OR "Deep Learning"[MeSH Terms]
+        OR "Neural Networks, Computer"[MeSH Terms]
+        OR "artificial intelligence"[Title/Abstract]
+        OR "machine learning"[Title/Abstract]
+        OR "deep learning"[Title/Abstract]
+        OR "artificial neural network*"[Title/Abstract]
+        OR "deep neural network*"[Title/Abstract]
+        OR "convolutional neural network*"[Title/Abstract]
+        OR "recurrent neural network*"[Title/Abstract]
+        OR "representation learning"[Title/Abstract]
+        OR "reinforcement learning"[Title/Abstract]
+        OR transformer*[Title/Abstract]
+        OR "foundation model*"[Title/Abstract]
+        OR "large language model*"[Title/Abstract]
+        OR neuroAI[Title/Abstract]
+        OR neuromorphic[Title/Abstract]
+    ) AND (
+        "Neurosciences"[MeSH Terms]
+        OR "Brain"[MeSH Terms]
+        OR "Nervous System"[MeSH Terms]
+        OR brain[Title/Abstract]
+        OR neuroscien*[Title/Abstract]
+        OR neuroimag*[Title/Abstract]
+        OR connectom*[Title/Abstract]
+        OR cortex[Title/Abstract]
+        OR cortical[Title/Abstract]
+        OR neuron*[Title/Abstract]
+        OR cognition[Title/Abstract]
+        OR cognitive[Title/Abstract]
+        OR perception[Title/Abstract]
+        OR "brain-computer interface*"[Title/Abstract]
+        OR "brain decoding"[Title/Abstract]
+        OR EEG[Title/Abstract]
+        OR fMRI[Title/Abstract]
+    )''',
 }
 
 THEME_RULES: dict[str, list[str]] = {
@@ -61,7 +98,14 @@ THEME_RULES: dict[str, list[str]] = {
     "clinical": [r"alzheimer", r"parkinson", r"epilep", r"schizophren", r"stroke", r"dementia", r"multiple sclerosis", r"traumatic brain", r"neurologic(?:al)? disorder", r"psychiatric disorder"],
     "networks": [r"neural coding", r"population dynamics", r"oscillat", r"connectom", r"network", r"information theory", r"computation", r"dynamical system"],
     "methods": [r"magnetic resonance", r"\bfmri\b", r"electrophysi", r"microscop", r"optogen", r"brain.computer interface", r"stimulation", r"algorithm", r"method"],
-    "neuroai": [r"artificial neural", r"deep learning", r"machine learning", r"transformer", r"neuroai", r"neuromorphic", r"representation learning", r"brain decoding", r"convolutional network"],
+    "neuroai": [
+        r"artificial intelligence", r"artificial neural", r"deep neural",
+        r"deep learning", r"machine learning", r"neural networks, computer",
+        r"transformer", r"foundation model", r"large language model",
+        r"neuroai", r"neuromorphic", r"representation learning",
+        r"reinforcement learning", r"brain decoding", r"convolutional neural",
+        r"recurrent neural", r"representational similarity",
+    ],
 }
 MONTHS = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
@@ -187,9 +231,10 @@ def _cached_search(term: str, retmax: int, *, refresh: bool, cache: dict[str, di
 def search_pubmed(
     papers_per_year: int,
     targeted_per_form: int = 350,
+    targeted_ai: int = 1_600,
     *,
     refresh_search: bool = False,
-) -> tuple[list[str], dict[int, int], dict[str, int], dict[str, int]]:
+) -> tuple[list[str], dict[int, int], dict[str, int], dict[str, int], dict[str, int]]:
     all_ids: list[str] = []
     counts: dict[int, int] = {}
     cache = _read_search_cache()
@@ -205,19 +250,22 @@ def search_pubmed(
         all_ids.extend(chosen)
         print(f"PubMed {year}: {counts[year]:>7,} matches, {len(chosen):>2} sampled", flush=True)
     targeted_counts: dict[str, int] = {}
+    targeted_samples: dict[str, int] = {}
     exclusion = 'hasabstract[text] NOT (editorial[Publication Type] OR letter[Publication Type] OR comment[Publication Type] OR correction[Publication Type])'
     for form, query in TARGET_QUERIES.items():
+        sample_size = targeted_ai if form == "ai" else targeted_per_form
         target_term = f"({query}) AND ({exclusion}) AND {START_YEAR}:{END_YEAR}[Date - Publication]"
         pool, targeted_counts[form], hit = _cached_search(
-            target_term, max(800, targeted_per_form * 5), refresh=refresh_search, cache=cache
+            target_term, max(800, sample_size * 5), refresh=refresh_search, cache=cache
         )
         cache_hits += int(hit); cache_misses += int(not hit)
-        chosen = _stable_spread(pool, targeted_per_form, 70_000 + list(TARGET_QUERIES).index(form))
+        chosen = _stable_spread(pool, sample_size, 70_000 + list(TARGET_QUERIES).index(form))
+        targeted_samples[form] = len(chosen)
         all_ids.extend(chosen)
         print(f"Target {form:>10}: {targeted_counts[form]:>7,} matches, {len(chosen):>3} sampled", flush=True)
     # Preserve first encounter so the broad year-stratified core stays authoritative.
     all_ids = list(dict.fromkeys(all_ids))
-    return all_ids, counts, targeted_counts, {"hits": cache_hits, "misses": cache_misses}
+    return all_ids, counts, targeted_counts, targeted_samples, {"hits": cache_hits, "misses": cache_misses}
 
 
 def _parse_month(value: str, pmid: str) -> tuple[int, str]:
@@ -327,7 +375,15 @@ def _fetch_pubmed_batch(batch: list[str]) -> list[Paper]:
             return checkpoint(_fetch_pubmed_batch(batch[:midpoint]) + _fetch_pubmed_batch(batch[midpoint:]))
         print(f"NCBI batch warning: {len(batch)} inaccessible records skipped after retries", flush=True)
         return checkpoint([])
-    root = ET.fromstring(raw)
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as error:
+        if len(batch) > 1:
+            midpoint = len(batch) // 2
+            print(f"NCBI XML repair: splitting {len(batch)} records after {error}", flush=True)
+            return checkpoint(_fetch_pubmed_batch(batch[:midpoint]) + _fetch_pubmed_batch(batch[midpoint:]))
+        print(f"NCBI XML warning: PMID {batch[0]} skipped after malformed XML", flush=True)
+        return checkpoint([])
     parsed = [_parse_record(article) for article in root.findall(".//PubmedArticle")]
     return checkpoint([paper for paper in parsed if paper is not None])
 
@@ -604,6 +660,7 @@ def build_corpus(
     *,
     papers_per_year: int = 104,
     targeted_per_form: int = 350,
+    targeted_ai: int = 1_600,
     env_file: Path = DEFAULT_ENV,
     force: bool = False,
     refresh_search: bool = False,
@@ -621,8 +678,8 @@ def build_corpus(
         raise RuntimeError(f"OPENROUTER_API_KEY was not found in {env_file}")
 
     started = datetime.now(timezone.utc)
-    ids, query_counts, targeted_counts, search_cache = search_pubmed(
-        papers_per_year, targeted_per_form, refresh_search=refresh_search
+    ids, query_counts, targeted_counts, targeted_samples, search_cache = search_pubmed(
+        papers_per_year, targeted_per_form, targeted_ai, refresh_search=refresh_search
     )
     papers = fetch_pubmed(ids)
     if len(papers) < (END_YEAR - START_YEAR + 1) * max(4, papers_per_year // 3):
@@ -678,7 +735,9 @@ def build_corpus(
             "sampling": "Per-year relevance pool followed by deterministic spread sampling",
             "requested_per_year": papers_per_year,
             "targeted_per_form": targeted_per_form,
+            "targeted_ai": targeted_ai,
             "targeted_query_counts": targeted_counts,
+            "targeted_sample_sizes": targeted_samples,
             "search_cache": search_cache,
             "parsed_records": len(papers),
             "query_counts": {str(year): count for year, count in query_counts.items()},

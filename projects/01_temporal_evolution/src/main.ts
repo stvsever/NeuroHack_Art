@@ -62,7 +62,7 @@ const ROW_STEP = .78
 const CHAMBER_X = 5.18
 const STREAM_START = -5.72
 const STREAM_END = 3.05
-const CODA_SECONDS = 12
+const CODA_SECONDS = 10
 const audio = new HarmonicEngine()
 const clock = new THREE.Clock()
 const uniforms = {
@@ -142,9 +142,9 @@ const PAPER_VERTEX = /* glsl */`
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
     float newborn = exp(-abs(uTime - aBirth) * 115.0);
-    gl_PointSize = (aSize + newborn * 8.5) * uPixelRatio;
-    vColor = aColor * (1.0 + newborn * 1.8);
-    vAlpha = born * (.20 + aStrength * .72 + newborn * .8);
+    gl_PointSize = (aSize + newborn * 2.4) * uPixelRatio;
+    vColor = aColor * (1.0 + newborn * .55);
+    vAlpha = born * (.20 + aStrength * .72 + newborn * .25);
   }
 `
 
@@ -218,10 +218,10 @@ const FOCUS_VERTEX = /* glsl */`
     pos *= 1.0 + sin(uPulse * 1.8 + aBirth * 113.0) * .008 * (journey + uFire);
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
-    float surge = (1.0 - journey) * 4.5 + arrival * 12.0 + uFire * 1.8;
-    gl_PointSize = (3.0 + aStrength * 4.8 + surge) * uPixelRatio * (3.2 / max(.72, -mv.z));
-    vColor = aColor * (1.0 + arrival * 2.8 + uFire * .55);
-    vAlpha = born * (.32 + aStrength * .62 + arrival * .9);
+    float surge = (1.0 - journey) * 1.4 + arrival * 2.5 + uFire * .45;
+    gl_PointSize = (2.6 + aStrength * 3.6 + surge) * uPixelRatio * (3.2 / max(.72, -mv.z));
+    vColor = aColor * (1.0 + arrival * .7 + uFire * .2);
+    vAlpha = born * (.26 + aStrength * .54 + arrival * .3);
   }
 `
 
@@ -242,8 +242,8 @@ const FOCUS_TEMPLATE_VERTEX = /* glsl */`
     vec3 pos = position;
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = (1.45 + firing * 1.05) * uPixelRatio * (3.0 / max(.8, -mv.z));
-    vAlpha = .15 + firing * .11;
+    gl_PointSize = (1.82 + firing * 1.05) * uPixelRatio * (3.0 / max(.8, -mv.z));
+    vAlpha = .235 + firing * .11;
   }
 `
 
@@ -256,7 +256,7 @@ const FOCUS_TEMPLATE_FRAGMENT = /* glsl */`
     if(r > .5) discard;
     float core = exp(-r*r*30.0);
     float halo = exp(-r*r*6.0) * .34;
-    gl_FragColor = vec4(uColor * (1.08 + vAlpha * .55), (core + halo) * vAlpha);
+    gl_FragColor = vec4(uColor * (1.18 + vAlpha * .42), (core + halo) * vAlpha);
   }
 `
 
@@ -434,13 +434,25 @@ function addTemplate(data: GeometryData, color: string, id = ''): void {
   const pointArray = new Float32Array(data.points.length * 3)
   data.points.forEach((p, i) => p.toArray(pointArray, i * 3))
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pointArray, 3))
-  const emphasis = id === 'human' ? .82 : id === 'ai' ? 1.08 : 1
-  const dots = new THREE.Points(pg, new THREE.PointsMaterial({ color, size: 1.22 * emphasis, sizeAttenuation: false, transparent: true, opacity: .235 * emphasis, blending: THREE.AdditiveBlending, depthWrite: false }))
+  const densityBalance = THREE.MathUtils.clamp(Math.sqrt(760 / Math.max(1, data.points.length)), .72, 1.12)
+  const emphasis = id === 'ai' ? .96 : 1
+  const dots = new THREE.Points(pg, new THREE.PointsMaterial({
+    color, size: 1.58 * emphasis, sizeAttenuation: false, transparent: true,
+    opacity: .39 * densityBalance, blending: THREE.AdditiveBlending, depthWrite: false,
+  }))
   scene.add(dots)
+  const glow = new THREE.Points(pg, new THREE.PointsMaterial({
+    color, size: 3.2 * emphasis, sizeAttenuation: false, transparent: true,
+    opacity: .052 * densityBalance, blending: THREE.AdditiveBlending, depthWrite: false,
+  }))
+  scene.add(glow)
   const lineArray = new Float32Array(data.edges.length * 6)
   data.edges.forEach(([a, b], i) => { data.points[a]?.toArray(lineArray, i * 6); data.points[b]?.toArray(lineArray, i * 6 + 3) })
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lineArray, 3))
-  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color, transparent: true, opacity: .071 * emphasis, blending: THREE.AdditiveBlending, depthWrite: false })))
+  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({
+    color, transparent: true, opacity: .125 * densityBalance,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  })))
 }
 
 function addBandsAndFilaments(): void {
@@ -768,6 +780,17 @@ function resetFocusView(): void {
   focusRoot.rotation.set(.06, -.18, 0)
 }
 
+function pioneeringLabel(formId: string, year: number, dominantTheme: string): string {
+  if (formId === 'ai') {
+    if (year < 1986) return 'CYBERNETIC & PERCEPTRON FOUNDATIONS'
+    if (year < 2006) return 'CONNECTIONISM & BACKPROPAGATION'
+    if (year < 2012) return 'STATISTICAL LEARNING FOR NEURAL DATA'
+    return 'DEEP REPRESENTATION LEARNING'
+  }
+  const form = corpus.strips.find(strip => strip.id === formId)?.name.toUpperCase() ?? formId.toUpperCase()
+  return `${form} · ${dominantTheme}`
+}
+
 function updateFocus(calendar: ReturnType<typeof progressToCalendar>, elapsed: number, delta: number): void {
   if (focusedLane < 0) return
   focusDistance += (focusTargetDistance - focusDistance) * Math.min(1, delta * 8)
@@ -783,7 +806,7 @@ function updateFocus(calendar: ReturnType<typeof progressToCalendar>, elapsed: n
   const firing = THREE.MathUtils.clamp(Math.sqrt(arrivals) * .08 + yearlyIntensity * .01, 0, 1)
   const response = firing > uniforms.uFire.value ? 11 : 2.4
   uniforms.uFire.value += (firing - uniforms.uFire.value) * Math.min(1, delta * response)
-  if (focusLineMaterial) focusLineMaterial.opacity = .078 + uniforms.uFire.value * .026
+  if (focusLineMaterial) focusLineMaterial.opacity = .13 + uniforms.uFire.value * .026
   focusHalos.forEach(halo => {
     const formId = corpus.strips[focusedLane].id
     const cluster = corpus.form_clusters?.[formId]?.find(item => item.id === halo.userData.clusterId)
@@ -797,14 +820,32 @@ function updateFocus(calendar: ReturnType<typeof progressToCalendar>, elapsed: n
     cluster.emergence_year <= calendar.year && focusClusterIds.has(cluster.id)
   )
   if (!present.length) {
+    const pioneers = focusPaperMetadata.filter(paper => paper.year <= calendar.year)
+    if (pioneers.length >= 3) {
+      const themeCounts = new Map<string, number>()
+      pioneers.forEach(paper => themeCounts.set(paper.theme, (themeCounts.get(paper.theme) ?? 0) + 1))
+      const dominantThemeId = [...themeCounts].sort((a, b) => b[1] - a[1])[0]?.[0]
+      const dominantTheme = corpus.themes.find(theme => theme.id === dominantThemeId)?.name.toUpperCase() ?? 'EARLY LITERATURE'
+      const nextFormation = (corpus.form_clusters?.[formId] ?? [])
+        .filter(cluster => focusClusterIds.has(cluster.id))
+        .sort((a, b) => a.emergence_year - b.emergence_year)[0]
+      $('#focus-cluster-count').textContent = '00'
+      $('#focus-cluster-name').textContent = pioneeringLabel(formId, calendar.year, dominantTheme)
+      $('#focus-cluster-terms').textContent = `${pioneers.length.toLocaleString()} ENTITY-SPECIFIC PAPERS FORM A REPEATABLE HISTORICAL SIGNAL, BEFORE DENSITY-STABLE MANIFOLD SEPARATION.`
+      $('#focus-coherence').style.width = '0%'
+      $('#focus-cluster-meta').textContent = nextFormation
+        ? `PIONEERING EVIDENCE / FIRST STABLE FORMATION ${nextFormation.emergence_year}`
+        : 'PIONEERING EVIDENCE / DENSITY FORMATION ACCUMULATING'
+      return
+    }
     $('#focus-cluster-count').textContent = '00'
-    $('#focus-cluster-name').textContent = 'PRE-FORMATION FIELD'
-    $('#focus-cluster-terms').textContent = 'The semantic graph is accumulating evidence; no stable neighborhood has crossed its density threshold at this date.'
+    $('#focus-cluster-name').textContent = 'EVIDENCE FIELD OPENING'
+    $('#focus-cluster-terms').textContent = 'FEWER THAN THREE ENTITY-SPECIFIC PAPERS ARE PRESENT AT THIS DATE.'
     $('#focus-coherence').style.width = '0%'
-    $('#focus-cluster-meta').textContent = `${formId.toUpperCase()}-SPECIFIC HDBSCAN / STABILITY THRESHOLD PENDING`
+    $('#focus-cluster-meta').textContent = `${formId.toUpperCase()}-SPECIFIC / REPEATABILITY THRESHOLD PENDING`
     return
   }
-  const selected = present[Math.floor(elapsed / 4.8) % present.length]
+  const selected = present[Math.floor(progress * Math.max(1, present.length * 7)) % present.length]
   $('#focus-cluster-count').textContent = String(present.length).padStart(2, '0')
   $('#focus-cluster-name').textContent = selected.label.toUpperCase()
   $('#focus-cluster-terms').textContent = selected.vocabulary.join(' · ').toUpperCase() || selected.theme.toUpperCase()
@@ -909,9 +950,18 @@ function updateInterface(calendar: ReturnType<typeof progressToCalendar>, elapse
   const frameWithClusters = calendar.frame as TimelineFrame & { new_clusters?: number[]; active_clusters?: number }
   const availableClusters = (corpus.clusters ?? []).filter(cluster => cluster.emergence_year <= calendar.year)
   const newClusterId = frameWithClusters.new_clusters?.[0]
+  const formationIndex = Math.floor(progress * Math.max(1, availableClusters.length * 3))
   const formation = (newClusterId != null ? corpus.clusters?.find(cluster => cluster.id === newClusterId) : undefined)
-    ?? availableClusters[Math.floor(elapsed / 6.4) % Math.max(1, availableClusters.length)]
-  if (formation) {
+    ?? availableClusters[formationIndex % Math.max(1, availableClusters.length)]
+  if (progress >= 1) {
+    $('#formation-name').textContent = 'ALL DETECTED FORMATIONS IN CONVERGENCE'
+    $('#formation-meta').textContent = `2026 / ${availableClusters.length} ACTIVE FORMATIONS / FINAL HARMONIC FIELD`
+    if (lastFormation !== -2) {
+      lastFormation = -2
+      const ticker = $('#formation-ticker')
+      ticker.classList.remove('flare'); void ticker.offsetWidth; ticker.classList.add('flare')
+    }
+  } else if (formation) {
     $('#formation-name').textContent = formation.label.toUpperCase()
     $('#formation-meta').textContent = `${formation.emergence_year} / ${formation.theme.toUpperCase()} / ${formation.size.toLocaleString()} PAPERS`
     if (formation.id !== lastFormation) {
@@ -989,13 +1039,20 @@ function resize(): void {
 function animate(): void {
   const delta = Math.min(.05, clock.getDelta())
   if (started && playing) {
-    artworkElapsed += delta * Math.sqrt(speed)
+    artworkElapsed += delta * speed
     if (progress < 1) {
       progress = Math.min(1, progress + delta / (178 / speed))
       codaElapsed = 0
     } else {
       codaElapsed += delta
-      if (codaElapsed >= CODA_SECONDS) setPlaying(false)
+      if (codaElapsed >= CODA_SECONDS) {
+        progress = 0
+        codaElapsed = 0
+        artworkElapsed = 0
+        lastCardKey = -1
+        lastFormation = -1
+        audio.seek()
+      }
     }
   }
   const elapsed = artworkElapsed

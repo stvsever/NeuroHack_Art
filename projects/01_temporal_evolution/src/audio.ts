@@ -38,6 +38,7 @@ export class HarmonicEngine {
   private reverbSend?: GainNode
   private delay?: DelayNode
   private delayGain?: GainNode
+  private tone?: BiquadFilterNode
   private nextBeat = 0
   private beat = 0
   private muted = false
@@ -45,6 +46,8 @@ export class HarmonicEngine {
   private playbackSpeed = 1
   private activeOscillators = new Set<OscillatorNode>()
   private codaPadUntil = 0
+  private lastYear = 1976
+  private lastMidi = [38, 45, 62, 74, 50, 67, 57, 81]
   private state: HarmonicState = {
     root: 2, mode: 'DORIAN', bpm: 64, activity: Array(8).fill(.2),
     interconnectedness: .18, masterGain: .24, arc: 0, coda: 0,
@@ -66,8 +69,13 @@ export class HarmonicEngine {
     compressor.ratio.value = 4
     compressor.attack.value = .02
     compressor.release.value = .55
-    master.connect(compressor).connect(ctx.destination)
+    const tone = ctx.createBiquadFilter()
+    tone.type = 'lowpass'
+    tone.frequency.value = 1_900
+    tone.Q.value = .48
+    master.connect(tone).connect(compressor).connect(ctx.destination)
     this.master = master
+    this.tone = tone
 
     const reverb = ctx.createConvolver()
     reverb.buffer = this.impulse(ctx, 3.8, 2.7)
@@ -145,6 +153,14 @@ export class HarmonicEngine {
     this.codaPadUntil = 0
   }
 
+  private circularStep(current: number, target: number): number {
+    const currentIndex = Math.max(0, FIFTHS.indexOf(current))
+    const targetIndex = Math.max(0, FIFTHS.indexOf(target))
+    const clockwise = (targetIndex - currentIndex + 12) % 12
+    const direction = clockwise === 0 ? 0 : clockwise <= 6 ? 1 : -1
+    return FIFTHS[(currentIndex + direction + 12) % 12]
+  }
+
   update(frame: TimelineFrame): void {
     const timelineProgress = Math.max(0, Math.min(1, (frame.year - 1976) / 50))
     const rise = timelineProgress * timelineProgress * (3 - 2 * timelineProgress)
@@ -152,31 +168,47 @@ export class HarmonicEngine {
     const coda = Math.max(0, Math.min(1, (timelineProgress - .94) / .06))
     const arc = Math.max(0, Math.min(1, rise * .55 + climax * .45 - coda * .34))
     const rootIndex = Math.max(0, Math.min(11, Math.floor(((frame.centroid[0] + 1) * .5) * 12)))
-    const mode = coda > .45 ? 'DORIAN' : frame.entropy > .76 ? 'LYDIAN' : frame.dispersion > .56 ? 'DORIAN' : 'AEOLIAN'
+    const targetRoot = coda > .55 ? 2 : FIFTHS[rootIndex]
+    let root = this.state.root
+    if (frame.year !== this.lastYear) {
+      const cadenceYear = (frame.year - 1976) % 3 === 0 || timelineProgress > .86
+      if (cadenceYear || coda > .55) root = coda > .78 ? 2 : this.circularStep(root, targetRoot)
+      this.lastYear = frame.year
+    }
+    const mode = coda > .45
+      ? 'DORIAN'
+      : arc > .74 && frame.entropy > .68 ? 'LYDIAN'
+        : frame.dispersion > .56 ? 'DORIAN' : 'AEOLIAN'
     const bpm = Math.round(56 + frame.entropy * 15 + Math.min(.16, frame.velocity) * 54 + arc * 28 - coda * 14)
     const interconnectedness = Math.max(.08, Math.min(1, frame.interconnectedness ?? (.2 + frame.entropy * .45)))
     const volumeGrowth = Math.max(0, Math.min(1, (Math.log10(Math.max(frame.query_count, 8_000)) - Math.log10(8_000)) / (Math.log10(165_000) - Math.log10(8_000))))
-    const masterGain = .18 + volumeGrowth * .21 + arc * .085 - coda * .045
+    const masterGain = .16 + volumeGrowth * .19 + arc * .065 - coda * .03
     this.state = {
-      root: coda > .72 ? 2 : FIFTHS[rootIndex],
+      root,
       mode, bpm, activity: frame.strip_activity, interconnectedness, masterGain, arc, coda,
     }
     if (this.ctx && this.master && !this.muted && !this.paused) this.master.gain.setTargetAtTime(masterGain, this.ctx.currentTime, .45)
-    if (this.ctx && this.reverbSend) this.reverbSend.gain.setTargetAtTime(.12 + interconnectedness * .24 + coda * .10, this.ctx.currentTime, .8)
-    if (this.ctx && this.delayGain) this.delayGain.gain.setTargetAtTime(.08 + interconnectedness * .13 + coda * .04, this.ctx.currentTime, .8)
+    if (this.ctx && this.tone) {
+      const cutoff = 1_150 + arc * 2_150 + interconnectedness * 1_250 - coda * 650
+      this.tone.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, .9)
+    }
+    if (this.ctx && this.reverbSend) this.reverbSend.gain.setTargetAtTime(.10 + interconnectedness * .18 + arc * .04 + coda * .08, this.ctx.currentTime, .8)
+    if (this.ctx && this.delayGain) this.delayGain.gain.setTargetAtTime(.065 + (1 - interconnectedness) * .10 + coda * .02, this.ctx.currentTime, .8)
     if (frame.year >= 2026 && coda > .72) this.ensureCodaPad()
   }
 
   label(): string {
     const movement = this.state.coda > .55
       ? 'CODA'
-      : this.state.arc > .84 ? 'CLIMAX' : this.state.arc > .5 ? 'ASCENT' : 'FORMATION'
+      : this.state.arc > .84 ? 'CLIMAX'
+        : this.state.interconnectedness > .72 ? 'CONVERGENCE'
+          : this.state.arc > .5 ? 'ASCENT' : 'FORMATION'
     return `${NAMES[this.state.root]} ${this.state.mode} · ${movement} · LINK ${Math.round(this.state.interconnectedness * 100)}% · ${this.state.bpm} BPM`
   }
 
   tick(): void {
     if (!this.ctx || !this.master || this.ctx.state !== 'running' || this.paused) return
-    const seconds = 60 / (this.state.bpm * Math.sqrt(this.playbackSpeed))
+    const seconds = 60 / (this.state.bpm * this.playbackSpeed)
     while (this.nextBeat < this.ctx.currentTime + .12) {
       this.scheduleBeat(this.nextBeat, seconds)
       this.nextBeat += seconds / 2
@@ -186,24 +218,80 @@ export class HarmonicEngine {
 
   private frequency(midi: number): number { return 440 * Math.pow(2, (midi - 69) / 12) }
 
+  private voiceLead(index: number, pitchClass: number): number {
+    const ranges = [[34, 48], [41, 57], [55, 70], [67, 82], [45, 62], [57, 74], [50, 67], [69, 86]]
+    const [low, high] = ranges[index]
+    const previous = this.lastMidi[index]
+    const candidates: number[] = []
+    for (let midi = low; midi <= high; midi++) if ((midi % 12 + 12) % 12 === pitchClass) candidates.push(midi)
+    const center = (low + high) * .5
+    const chosen = candidates.sort((a, b) =>
+      (Math.abs(a - previous) + Math.abs(a - center) * .08)
+      - (Math.abs(b - previous) + Math.abs(b - center) * .08)
+    )[0] ?? Math.round(center)
+    this.lastMidi[index] = chosen
+    return chosen
+  }
+
   private scheduleBeat(time: number, seconds: number): void {
     const scale = MODES[this.state.mode]
-    const triad = [0, 2, 4, 6]
+    const phrase = Math.floor(this.beat / 8) % 4
+    const progression = this.state.coda > .55 ? [0, 3, 4, 0] : [0, 4, 3, 5]
+    const localRoot = progression[phrase]
+    const tension = Math.max(0, Math.min(1, (this.state.arc - .62) / .28)) * (1 - this.state.coda)
+    const chord = tension > .62 && phrase === 2
+      ? [localRoot, localRoot + 1, localRoot + 4, localRoot + 6]
+      : [localRoot, localRoot + 2, localRoot + 4, localRoot + 6]
+    const harmonicPull = Math.pow(this.state.interconnectedness, 1.35)
     for (let voice = 0; voice < 8; voice++) {
       const activity = Math.max(.04, this.state.activity[voice] ?? .05)
       const density = Math.min(1, (.09 + activity * 1.22 + this.state.arc * .24) * (1 - this.state.coda * .32))
       const subdivision = [8, 6, 4, 3, 2, 2, 1, 2][voice]
-      if ((this.beat + voice * 3) % subdivision !== 0 && Math.random() > density * .34) continue
-      const harmonized = Math.random() < Math.min(1, this.state.interconnectedness + this.state.coda * .35)
-      const degree = voice === 7
-        ? this.borrowed[(this.beat >> 1) % this.borrowed.length] % 7
-        : this.state.coda > .65 ? [0, 4, 2, 0][(this.beat + voice) % 4]
-          : harmonized ? triad[(this.beat + voice) % triad.length] : (voice * 3 + this.beat) % 7
-      const octaves = [2, 2, 4, 5, 3, 4, 4, 5]
-      const midi = 12 * octaves[voice] + 24 + this.state.root + scale[degree]
+      const groundPulse = voice === 0 && this.beat % 4 === 0
+      if (!groundPulse && (this.beat + voice * 3) % subdivision !== 0 && Math.random() > density * .34) continue
+      const integrated = ((this.beat * 37 + voice * 17) % 101) / 100 < Math.min(1, harmonicPull + this.state.coda * .38)
+      const independent = (voice * 3 + this.beat + phrase) % 7
+      const degree = this.state.coda > .68
+        ? [0, 4, 2, 0][(this.beat + voice) % 4]
+        : integrated ? chord[(this.beat + voice) % chord.length] % 7 : independent
+      const pitchClass = (this.state.root + scale[degree]) % 12
+      const midi = this.voiceLead(voice, pitchClass)
       if (voice < 7 && this.beat % 4 === 0) this.borrowed[(this.beat + voice) % this.borrowed.length] = degree
       this.voice(voice, this.frequency(midi), time + voice * .006, seconds, activity)
     }
+    if (this.beat % 16 === 0) {
+      const bedDegrees = this.state.coda > .55 ? [0, 2, 4] : [chord[0] % 7, chord[1] % 7, chord[2] % 7]
+      this.harmonicBed(time, seconds * 8, bedDegrees.map(degree => (this.state.root + scale[degree]) % 12))
+    }
+  }
+
+  private harmonicBed(time: number, duration: number, pitchClasses: number[]): void {
+    if (!this.ctx || !this.master || !this.reverbSend) return
+    const ctx = this.ctx
+    const bus = ctx.createGain()
+    const filter = ctx.createBiquadFilter()
+    const amplitude = .0045 + this.state.interconnectedness * .011 + this.state.arc * .004
+    filter.type = 'lowpass'
+    filter.frequency.value = 780 + this.state.interconnectedness * 1_050
+    filter.Q.value = .42
+    bus.gain.setValueAtTime(.0001, time)
+    bus.gain.exponentialRampToValueAtTime(amplitude, time + Math.min(1.4, duration * .24))
+    bus.gain.exponentialRampToValueAtTime(.0001, time + duration)
+    bus.connect(filter).connect(this.master)
+    filter.connect(this.reverbSend)
+    pitchClasses.forEach((pitchClass, index) => {
+      const oscillator = ctx.createOscillator()
+      const partial = ctx.createGain()
+      const midi = 48 + ((pitchClass - 0 + 12) % 12) + (index === 2 ? 12 : 0)
+      oscillator.type = index === 0 ? 'sine' : 'triangle'
+      oscillator.frequency.value = this.frequency(midi)
+      oscillator.detune.value = (index - 1) * 3.5 * (1 - this.state.interconnectedness)
+      partial.gain.value = [1, .55, .32][index]
+      oscillator.connect(partial).connect(bus)
+      this.track(oscillator)
+      oscillator.start(time)
+      oscillator.stop(time + duration + .05)
+    })
   }
 
   private voice(index: number, frequency: number, time: number, beat: number, activity: number): void {
@@ -266,18 +354,18 @@ export class HarmonicEngine {
     const ctx = this.ctx
     const now = ctx.currentTime
     if (now < this.codaPadUntil) return
-    const duration = 13.5
+    const duration = 10
     this.codaPadUntil = now + duration
     const bus = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     filter.type = 'lowpass'
     filter.Q.value = .7
     filter.frequency.setValueAtTime(420, now)
-    filter.frequency.exponentialRampToValueAtTime(2400, now + 4.8)
+    filter.frequency.exponentialRampToValueAtTime(2_650, now + 4.2)
     filter.frequency.exponentialRampToValueAtTime(680, now + duration)
     bus.gain.setValueAtTime(.0001, now)
-    bus.gain.exponentialRampToValueAtTime(.048, now + 4.2)
-    bus.gain.exponentialRampToValueAtTime(.034, now + 10.2)
+    bus.gain.exponentialRampToValueAtTime(.046, now + 3.7)
+    bus.gain.exponentialRampToValueAtTime(.034, now + 7.6)
     bus.gain.exponentialRampToValueAtTime(.0001, now + duration)
     bus.connect(filter).connect(this.master)
     filter.connect(this.reverbSend)
@@ -287,7 +375,7 @@ export class HarmonicEngine {
       oscillator.type = index < 2 ? 'sine' : 'triangle'
       oscillator.frequency.value = this.frequency(midi)
       oscillator.detune.setValueAtTime((index - 2) * 4.5, now)
-      oscillator.detune.linearRampToValueAtTime(0, now + 6.5)
+      oscillator.detune.linearRampToValueAtTime(0, now + 6.2)
       partial.gain.value = [1, .62, .46, .27, .20][index]
       oscillator.connect(partial).connect(bus)
       this.track(oscillator)

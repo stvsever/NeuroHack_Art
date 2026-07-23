@@ -83,6 +83,7 @@ CURATED_FORMATIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("methods", "Structural Neuroimaging", ("tomography, x-ray computed", "magnetic resonance imaging", "brain scanner", "diagnosis, differential", "intracranial")),
     ("methods", "Stimulation, Evoked Potentials & EMG", ("electromyography", "transcranial magnetic stimulation", "evoked potentials, motor", "electrical stimulation", "nerve conduction")),
     ("methods", "Computational Neuroimaging", ("image processing, computer-assisted", "algorithms", "computer graphics", "imaging, three-dimensional", "image analyzer")),
+    ("methods", "Machine Learning for Neural Signals", ("machine learning", "artificial intelligence", "neural decoding", "electroencephalography", "functional magnetic resonance imaging", "brain-computer interface")),
     ("methods", "History of Brain Mapping", ("phrenology", "franz josef gall", "freud", "neuroanatomy", "history")),
     ("methods", "Functional Imaging of Perception", ("visual cortex", "motion perception", "photic stimulation", "functional imaging", "face recognition")),
     ("methods", "Genetic & Optical Circuit Dissection", ("optogenetics", "cell typing", "drosophila", "c. elegans", "genetics to genome")),
@@ -93,6 +94,7 @@ CURATED_FORMATIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("networks", "Excitable Biological Networks", ("biophysics", "action potentials", "membrane potentials", "neurospora", "electrotonic")),
     ("networks", "Primate Visual Circuits", ("visual cortex", "macaca mulatta", "photic stimulation", "macaque", "ganglion cells")),
     ("networks", "Computational Neuroscience & Connectomics", ("computational biology", "cognitive neuroscience", "connectome", "neural networks, computer", "functional anatomy")),
+    ("networks", "Cybernetics, Perceptrons & Neural Computation", ("cybernetics", "perceptron", "adaptive systems", "parallel distributed processing", "connectionism", "pattern recognition", "computational model")),
     ("networks", "Whole-Brain Connectomics", ("connectome", "neuroarchitecture", "whole-brain", "central complex", "component placement")),
     ("networks", "Spiking Networks & Neuromorphic Models", ("neuromorphic computing", "spiking neural networks", "cortical neuromorphic", "excitable map-based")),
     ("networks", "Oscillations & Population Dynamics", ("oscillations", "population dynamics", "synchronization", "functional connectivity", "network dynamics")),
@@ -123,8 +125,10 @@ CURATED_FORMATIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("cognition", "Conscious Access & Metacognition", ("consciousness", "awareness", "metacognition", "global workspace")),
 
     ("neuroai", "Embodied & Artificial Intelligence", ("artificial intelligence", "robotics", "intelligence", "philosophy", "cognitive neuroscience")),
+    ("neuroai", "Connectionism & Backpropagation", ("connectionism", "backpropagation", "parallel distributed processing", "neural networks, computer", "multilayer perceptron")),
     ("neuroai", "Memristive Synapses & Neuromorphic Hardware", ("semiconductors", "artificial synapse", "memristor", "spintronic", "neuromorphic hardware")),
     ("neuroai", "Deep Learning & Transformers", ("transformer", "deep learning", "neural networks, computer", "artificial neural network", "foundation model")),
+    ("neuroai", "Representational Alignment & Predictive Models", ("representational similarity", "encoding model", "predictive coding", "representation learning", "brain score", "neural prediction")),
     ("neuroai", "Reinforcement Learning & Neural Agents", ("reinforcement learning", "agent", "policy learning", "reward prediction")),
     ("neuroai", "Brain–Computer Interfaces & Neural Decoding", ("brain-computer interface", "neural decoding", "brain-machine", "neuroprosthesis")),
 )
@@ -157,10 +161,22 @@ def _unique_terms(terms: list[str], limit: int = 5) -> list[str]:
     return unique
 
 
-def _emergence_year(years: list[int]) -> int:
+def _emergence_year(years: list[int], *, entity_specific: bool = False) -> int:
     ordered = sorted(years)
-    threshold = min(len(ordered) - 1, max(7, int(len(ordered) * 0.08)))
-    return int(ordered[threshold])
+    if not ordered:
+        return START_YEAR
+    # Emergence is the first repeatable body of evidence, not an arbitrary late
+    # percentile. Specialist histories can be real while the global field is
+    # still sparse, so entity-specific formations use a three-paper floor.
+    floor = 3 if entity_specific else 5
+    share = .03 if entity_specific else .05
+    root_scale = .42 if entity_specific else .62
+    evidence_count = max(
+        floor,
+        math.ceil(len(ordered) * share),
+        math.ceil(math.sqrt(len(ordered)) * root_scale),
+    )
+    return int(ordered[min(len(ordered), evidence_count) - 1])
 
 
 FORM_CLUSTER_EVIDENCE = {
@@ -171,7 +187,11 @@ FORM_CLUSTER_EVIDENCE = {
     "rodent": re.compile(r"\bmouse\b|\bmice\b|\brats?\b|murine|rodent|hamster|gerbil|vole"),
     "macaque": re.compile(r"macaque|macaca|rhesus|cynomolgus"),
     "human": re.compile(r"\bhuman|\bpatients?\b|healthy volunteers?|\bfmri\b|\bmeg\b|intracranial eeg|electrocorticograph"),
-    "ai": re.compile(r"artificial|deep learning|machine learning|neural network|transformer|neuromorphic|neuroai|memrist"),
+    "ai": re.compile(
+        r"artificial|deep learning|machine learning|neural network|transformer|"
+        r"neuromorphic|neuroai|memrist|perceptron|connectionis|backpropagat|"
+        r"representation learning|reinforcement learning|foundation model|large language model"
+    ),
 }
 AI_NEUROSCIENCE_EVIDENCE = re.compile(
     r"brain|neurosci|cognit|neuromorph|synap|neuron|spiking|neural decoding|"
@@ -208,6 +228,7 @@ FORM_LABEL_REWRITES = {
         "Human Memory Systems": "C. elegans Learning & Memory",
     },
     "drosophila": {
+        "Fungal Morphogenesis & Sporulation": "Drosophila Neural Morphogenesis",
         "C. elegans Molecular Neurobiology": "Drosophila Molecular Neurobiology",
         "Dementia, Atrophy & Cognitive Decline": "Fly Models of Neurodegeneration",
         "Hippocampal Learning & Avoidance": "Associative Memory Circuits",
@@ -235,6 +256,14 @@ FORM_LABEL_REWRITES = {
         "Deep Learning & Transformers": "Human–AI Representation Alignment",
     },
     "ai": {
+        "Primate Visual Circuits": "Learned Models of Visual Cortex",
+        "Foundational Neurochemical Mapping": "Machine Learning for Neural Biomarkers",
+        "Vigilance & Electrophysiology": "AI for EEG, Sleep & Vigilance",
+        "Fear, Threat & Amygdala Circuits": "Affective Computing & Amygdala Models",
+        "Primate Working Memory & Recognition": "Learned Working-Memory Models",
+        "Neuroinformatics & Open Data": "AI-Enabled Neuroinformatics",
+        "Networks & computation · Cerebellum": "Learned Cerebellar Segmentation",
+        "Language, Attention & Working Memory": "Language Models & Cognitive Neuroscience",
         "Human Memory Systems": "Learned Memory Representations",
         "Neurogenesis & Early Brain Development": "Architectural Growth & Plasticity",
         "Visual & Auditory Coding": "Multimodal Representation Learning",
@@ -341,7 +370,7 @@ def _enrich_form_clusters(payload: dict) -> dict[str, dict]:
                 raw_clusters.append({
                     "raw_id": raw_id,
                     "form": form_id,
-                    "emergence_year": _emergence_year(years),
+                    "emergence_year": _emergence_year(years, entity_specific=True),
                     "peak_year": START_YEAR + int(np.argmax(growth)),
                     "size": int(len(indices)),
                     "theme": theme_id,
@@ -425,6 +454,7 @@ def _enrich_form_clusters(payload: dict) -> dict[str, dict]:
     payload["form_cluster_method"] = {
         "algorithm": "form-conditioned, theme-stratified HDBSCAN",
         "membership": "Association score ≥ 0.65 plus explicit entity evidence in title, MeSH, or keywords",
+        "emergence": "First repeatable entity-specific evidence body: at least three papers, scaled by formation size",
         "space": "shared global topic-shaped UMAP(3), independently density-detected inside each form",
         "scopes": methods,
         "interpretation": "Entity-specific semantic formations, not anatomical regions.",
