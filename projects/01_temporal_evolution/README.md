@@ -90,6 +90,8 @@ The overview preserves one global stream of 66 formations. Focus mode performs a
 
 Anatomies are uniformly scaled and rotated into specimen chambers; axes are never stretched independently.
 
+In the eight-form overview, every compact scaffold rotates slowly around its own horizontal axis. Its settled publication particles use the same pivot and angular rate, so the semantic body remains registered to the source geometry while revealing its depth. Labels, lanes, and chamber positions do not move.
+
 | Form | Geometry used in the artwork | Status |
 |---|---|---|
 | Neural gradient | Excitable-wave / electrochemical field | Procedural: a mechanism has no atlas |
@@ -135,11 +137,26 @@ The eight voices are:
 7. a detuned human formant choir
 8. a morphing AI voice that borrows interval motifs from biological voices
 
-Interconnectedness combines semantic-neighbor edges, cross-theme bridges, density, cumulative growth, and active formations. As it increases, deterministic voice-leading pulls all eight timbres toward a shared four-note chord field, detuning narrows, stereo voices cohere, and a quiet three-part harmonic bed becomes audible. Delays recede as the voices integrate while reverb and a shared low-pass master contour widen the common space. Publication volume raises orchestral density and mastered gain through a compressor, so the late literature feels larger without clipping.
+Interconnectedness combines semantic-neighbor edges, cross-theme bridges, density, cumulative growth, and active formations. As it increases, deterministic voice-leading pulls all eight timbres toward a shared four-note chord field, detuning narrows, stereo voices cohere, and harmonized response tones become audible. Delays recede as the voices integrate while reverb and a shared low-pass master contour widen the common space. Publication volume raises orchestral density and mastered gain through a compressor, so the late literature feels larger without clipping.
 
-The score has a 178-second data ascent—sparse formation, accelerating tension, and a high-interconnection climax—followed by an exact ten-second resolving coda at 2026. A recurring modal melody gradually reveals itself above the eight data voices; restrained diatonic response tones become more audible as semantic interconnection rises. Deterministic voice-leading keeps the theme singable while its root, mode, density, orchestration, and harmonic support remain driven by the literature.
+Every musical control has a direct bibliometric or semantic source:
 
-At the endpoint, the timeline holds while all detected formations converge, the rhythmic scheduler returns to real concert tempo regardless of the selected playback multiplier, and a finite resolving melody unfolds over a five-part D-centered synth field. Detuning and stereo width converge into one harmonic body, then the full work restarts automatically. Before the endpoint, playback speed multiplies the timeline, visual formation clock, and musical scheduler by the same factor; seeking kills the old harmonic tail before rebuilding the score from the selected year, and pausing freezes both visual phase and sound rather than letting either timeline drift.
+| Literature feature | Sonified parameter |
+|---|---|
+| Timeline position | Large-scale form, buildup, convergence, and final cadence |
+| Annual PubMed query count | Log-compressed master level and orchestral event density |
+| Activity of each of the eight forms | The activity of that form’s dedicated timbral voice |
+| Global semantic centroid | Target tonal center, reached through restrained circle-of-fifths motion |
+| Semantic entropy | Tempo pressure and modal openness |
+| Manifold dispersion | Mode choice and master-filter brightness |
+| Year-to-year semantic velocity | Tempo acceleration, melodic density, and vibrato energy |
+| Number of active semantic formations | Harmonic-bed strength and how completely the recurring melody is stated |
+| Interconnectedness and cross-theme bridges | Chord-tone probability, harmony-voice gain, stereo convergence, and removal of detuning |
+| Final-timeline convergence | Progressive recruitment of all eight voices into a D-centered, fully aligned harmonic field |
+
+The score lasts for the 178-second data ascent itself. Its final fifth is an extended integration section: the tonal center is gradually pulled toward D, the mode stabilizes as Dorian, all eight form voices are recruited more reliably, a five-part sustained field thickens, and the recurring melody gains a diatonic lower response. The final cadence occupies the last part of the moving timeline and finishes before the playhead reaches 2026.
+
+At the exact final index, all oscillators and the master output stop. The timeline then holds the fully settled visual bibliography in silence for ten seconds before the whole work restarts automatically. Playback speed multiplies the timeline, visual formation clock, and musical scheduler together; seeking kills the old harmonic tail before rebuilding the score from the selected year, and pausing freezes both visual phase and sound rather than letting either timeline drift.
 
 ## Temporal landmarks
 

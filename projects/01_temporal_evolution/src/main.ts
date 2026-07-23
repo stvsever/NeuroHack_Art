@@ -68,6 +68,7 @@ const clock = new THREE.Clock()
 const uniforms = {
   uTime: { value: 0 },
   uPulse: { value: 0 },
+  uSpatialTime: { value: 0 },
   uPixelRatio: { value: renderer.getPixelRatio() },
   uFire: { value: 0 },
 }
@@ -82,6 +83,7 @@ let clean = false
 let cumulative: number[] = []
 let lastCardKey = -1
 let artworkElapsed = 0
+let spatialElapsed = 0
 let codaElapsed = 0
 let focusedLane = -1
 let focusDistance = 4.2
@@ -99,6 +101,7 @@ const activePointers = new Map<number, { x: number; y: number }>()
 let pinchDistance = 0
 const destinations: Record<string, THREE.Vector3[]> = {}
 const focusGeometries: Record<string, GeometryData> = {}
+const overviewSpinners: THREE.Group[] = []
 const papersByYear = new Map<number, Paper[]>()
 const raycaster = new THREE.Raycaster()
 const pointerNdc = new THREE.Vector2()
@@ -126,10 +129,13 @@ const PAPER_VERTEX = /* glsl */`
   attribute float aBirth;
   attribute float aStrength;
   attribute float aSize;
+  attribute float aLaneY;
+  attribute float aSpinRate;
   varying vec3 vColor;
   varying float vAlpha;
   uniform float uTime;
   uniform float uPulse;
+  uniform float uSpatialTime;
   uniform float uPixelRatio;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
@@ -137,7 +143,14 @@ const PAPER_VERTEX = /* glsl */`
     float born = smoothstep(aBirth - .002, aBirth + .004, uTime);
     float journey = ease(clamp((uTime - aBirth) / .052, 0.0, 1.0));
     journey = mix(journey, 1.0, endpoint);
-    vec3 pos = mix(aStream, aTarget, journey);
+    float angle = uSpatialTime * aSpinRate;
+    float cosine = cos(angle);
+    float sine = sin(angle);
+    vec3 target = aTarget;
+    float localY = target.y - aLaneY;
+    target.y = aLaneY + localY * cosine - target.z * sine;
+    target.z = localY * sine + target.z * cosine;
+    vec3 pos = mix(aStream, target, journey);
     float wave = sin(uPulse * 2.1 + aBirth * 87.0 + position.x * 2.0);
     pos.z += wave * .025 * (1.0 - journey);
     pos.y += sin(journey * 3.14159) * .13 * (1.0 - aStrength);
@@ -434,9 +447,29 @@ function graphFiringAttributes(data: GeometryData, formId: string): {
   return { phase, degree, seed }
 }
 
+const OVERVIEW_SPIN_RATES: Record<string, number> = {
+  gradient: .14,
+  fungal: .105,
+  elegans: .125,
+  drosophila: .15,
+  rodent: .095,
+  macaque: .085,
+  human: .078,
+  ai: .115,
+}
+
+function overviewSpinRate(formId: string): number {
+  return OVERVIEW_SPIN_RATES[formId] ?? .1
+}
+
 function addTemplate(data: GeometryData, color: string, id = ''): void {
+  const lane = Math.max(0, corpus.strips.findIndex(strip => strip.id === id))
+  const pivot = new THREE.Vector3(CHAMBER_X, ROW_TOP - lane * ROW_STEP, 0)
+  const group = new THREE.Group()
+  group.position.copy(pivot)
+  group.userData.spinRate = overviewSpinRate(id)
   const pointArray = new Float32Array(data.points.length * 3)
-  data.points.forEach((p, i) => p.toArray(pointArray, i * 3))
+  data.points.forEach((point, index) => point.clone().sub(pivot).toArray(pointArray, index * 3))
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pointArray, 3))
   const densityBalance = THREE.MathUtils.clamp(Math.sqrt(280 / Math.max(1, data.points.length)), .24, .9)
   const emphasis = id === 'ai' ? .75 : 1
@@ -444,19 +477,24 @@ function addTemplate(data: GeometryData, color: string, id = ''): void {
     color, size: 1.1 * emphasis, sizeAttenuation: false, transparent: true,
     opacity: .14 * densityBalance, blending: THREE.NormalBlending, depthWrite: false,
   }))
-  scene.add(dots)
+  group.add(dots)
   const glow = new THREE.Points(pg, new THREE.PointsMaterial({
     color, size: 2.1 * emphasis, sizeAttenuation: false, transparent: true,
     opacity: .005 * densityBalance, blending: THREE.AdditiveBlending, depthWrite: false,
   }))
-  scene.add(glow)
+  group.add(glow)
   const lineArray = new Float32Array(data.edges.length * 6)
-  data.edges.forEach(([a, b], i) => { data.points[a]?.toArray(lineArray, i * 6); data.points[b]?.toArray(lineArray, i * 6 + 3) })
+  data.edges.forEach(([a, b], index) => {
+    data.points[a]?.clone().sub(pivot).toArray(lineArray, index * 6)
+    data.points[b]?.clone().sub(pivot).toArray(lineArray, index * 6 + 3)
+  })
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lineArray, 3))
-  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({
+  group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({
     color, transparent: true, opacity: .035 * densityBalance,
     blending: THREE.NormalBlending, depthWrite: false,
   })))
+  scene.add(group)
+  overviewSpinners.push(group)
 }
 
 function addBandsAndFilaments(): void {
@@ -566,6 +604,7 @@ function drawPublicationAxis(activeIndex: number): void {
 
 function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
   const streams: number[] = [], targets: number[] = [], colors: number[] = [], births: number[] = [], strengths: number[] = [], sizes: number[] = []
+  const laneYs: number[] = [], spinRates: number[] = []
   const color = new THREE.Color()
   corpus.papers.forEach(paper => {
     const entries = Object.entries(paper.strips).sort((a, b) => b[1] - a[1])
@@ -588,6 +627,7 @@ function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
       color.set(corpus.themes[Math.max(0, topic)]?.color ?? '#ffffff')
       colors.push(color.r, color.g, color.b)
       births.push(birth); strengths.push(strength); sizes.push(1.2 + paper.density * 1.9 + strength * 1.4)
+      laneYs.push(laneY); spinRates.push(overviewSpinRate(stripId))
     })
   })
   const geometry = new THREE.BufferGeometry()
@@ -598,6 +638,8 @@ function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
   geometry.setAttribute('aBirth', new THREE.Float32BufferAttribute(births, 1))
   geometry.setAttribute('aStrength', new THREE.Float32BufferAttribute(strengths, 1))
   geometry.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1))
+  geometry.setAttribute('aLaneY', new THREE.Float32BufferAttribute(laneYs, 1))
+  geometry.setAttribute('aSpinRate', new THREE.Float32BufferAttribute(spinRates, 1))
   const material = new THREE.ShaderMaterial({
     vertexShader: PAPER_VERTEX, fragmentShader: PAPER_FRAGMENT, uniforms,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -1014,7 +1056,9 @@ async function init(): Promise<void> {
     destinations[strip.id] = [...fitted.points].sort((a, b) => (Math.atan2(a.y - laneY, a.x - CHAMBER_X) + a.z * .2) - (Math.atan2(b.y - laneY, b.x - CHAMBER_X) + b.z * .2))
   })
   learningMachine = new LearningMachine(CHAMBER_X, ROW_TOP - 7 * ROW_STEP)
+  learningMachine.group.userData.spinRate = overviewSpinRate('ai')
   scene.add(learningMachine.group)
+  overviewSpinners.push(learningMachine.group)
   learningMachine.update(2026, 0)
   destinations.ai = learningMachine.destinations.map(p => p.clone()).sort((a, b) => Math.atan2(a.y - learningMachine.group.position.y, a.x - CHAMBER_X) - Math.atan2(b.y - learningMachine.group.position.y, b.x - CHAMBER_X))
   const aiPoints = learningMachine.focusPoints.map(point => point.clone())
@@ -1040,6 +1084,7 @@ function animate(): void {
   const delta = Math.min(.05, clock.getDelta())
   if (started && playing) {
     artworkElapsed += delta * speed
+    spatialElapsed += delta
     if (progress < 1) {
       progress = Math.min(1, progress + delta / (178 / speed))
       codaElapsed = 0
@@ -1056,7 +1101,10 @@ function animate(): void {
     }
   }
   const elapsed = artworkElapsed
-  uniforms.uTime.value = progress; uniforms.uPulse.value = elapsed
+  uniforms.uTime.value = progress
+  uniforms.uPulse.value = elapsed
+  uniforms.uSpatialTime.value = spatialElapsed
+  overviewSpinners.forEach(group => { group.rotation.x = spatialElapsed * Number(group.userData.spinRate ?? .1) })
   if (corpus) {
     const calendar = progressToCalendar(progress)
     learningMachine?.update(calendar.year + calendar.fraction, elapsed)
