@@ -69,6 +69,7 @@ const uniforms = {
   uTime: { value: 0 },
   uPulse: { value: 0 },
   uSpatialTime: { value: 0 },
+  uChamberX: { value: CHAMBER_X },
   uPixelRatio: { value: renderer.getPixelRatio() },
   uFire: { value: 0 },
 }
@@ -129,17 +130,17 @@ const PAPER_VERTEX = /* glsl */`
   attribute float aBirth;
   attribute float aStrength;
   attribute float aSize;
-  attribute float aLaneY;
   attribute float aSpinRate;
   varying vec3 vColor;
   varying float vAlpha;
   uniform float uTime;
   uniform float uPulse;
   uniform float uSpatialTime;
+  uniform float uChamberX;
   uniform float uPixelRatio;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
-    float endpoint = smoothstep(.992, .9995, uTime);
+    float endpoint = smoothstep(.9992, .99995, uTime);
     float born = smoothstep(aBirth - .002, aBirth + .004, uTime);
     float journey = ease(clamp((uTime - aBirth) / .052, 0.0, 1.0));
     journey = mix(journey, 1.0, endpoint);
@@ -147,9 +148,9 @@ const PAPER_VERTEX = /* glsl */`
     float cosine = cos(angle);
     float sine = sin(angle);
     vec3 target = aTarget;
-    float localY = target.y - aLaneY;
-    target.y = aLaneY + localY * cosine - target.z * sine;
-    target.z = localY * sine + target.z * cosine;
+    float localX = target.x - uChamberX;
+    target.x = uChamberX + localX * cosine + target.z * sine;
+    target.z = -localX * sine + target.z * cosine;
     vec3 pos = mix(aStream, target, journey);
     float wave = sin(uPulse * 2.1 + aBirth * 87.0 + position.x * 2.0);
     pos.z += wave * .025 * (1.0 - journey);
@@ -188,7 +189,7 @@ const ARCHIVE_VERTEX = /* glsl */`
   uniform float uPulse;
   uniform float uPixelRatio;
   void main(){
-    float motionGate = 1.0 - smoothstep(.992, .9995, uTime);
+    float motionGate = 1.0 - smoothstep(.9992, .99995, uTime);
     float born = smoothstep(aBirth - .003, aBirth + .003, uTime);
     float recent = exp(-abs(uTime - aBirth) * 70.0);
     vec3 pos = position;
@@ -222,7 +223,7 @@ const FOCUS_VERTEX = /* glsl */`
   uniform float uPixelRatio;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
-    float endpoint = smoothstep(.992, .9995, uTime);
+    float endpoint = smoothstep(.9992, .99995, uTime);
     float born = smoothstep(aBirth - .003, aBirth + .004, uTime);
     float journey = ease(clamp((uTime - aBirth) / .036, 0.0, 1.0));
     journey = mix(journey, 1.0, endpoint);
@@ -604,7 +605,7 @@ function drawPublicationAxis(activeIndex: number): void {
 
 function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
   const streams: number[] = [], targets: number[] = [], colors: number[] = [], births: number[] = [], strengths: number[] = [], sizes: number[] = []
-  const laneYs: number[] = [], spinRates: number[] = []
+  const spinRates: number[] = []
   const color = new THREE.Color()
   corpus.papers.forEach(paper => {
     const entries = Object.entries(paper.strips).sort((a, b) => b[1] - a[1])
@@ -627,7 +628,7 @@ function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
       color.set(corpus.themes[Math.max(0, topic)]?.color ?? '#ffffff')
       colors.push(color.r, color.g, color.b)
       births.push(birth); strengths.push(strength); sizes.push(1.2 + paper.density * 1.9 + strength * 1.4)
-      laneYs.push(laneY); spinRates.push(overviewSpinRate(stripId))
+      spinRates.push(overviewSpinRate(stripId))
     })
   })
   const geometry = new THREE.BufferGeometry()
@@ -638,7 +639,6 @@ function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
   geometry.setAttribute('aBirth', new THREE.Float32BufferAttribute(births, 1))
   geometry.setAttribute('aStrength', new THREE.Float32BufferAttribute(strengths, 1))
   geometry.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1))
-  geometry.setAttribute('aLaneY', new THREE.Float32BufferAttribute(laneYs, 1))
   geometry.setAttribute('aSpinRate', new THREE.Float32BufferAttribute(spinRates, 1))
   const material = new THREE.ShaderMaterial({
     vertexShader: PAPER_VERTEX, fragmentShader: PAPER_FRAGMENT, uniforms,
@@ -845,7 +845,7 @@ function updateFocus(calendar: ReturnType<typeof progressToCalendar>, elapsed: n
   focusRoot.position.y = 0
   let arrivals = 0
   for (const birth of focusBirths) arrivals += Math.exp(-Math.abs(progress - (birth + .036)) * 170)
-  const firing = progress >= .9995 ? 0 : THREE.MathUtils.clamp(Math.sqrt(arrivals) * .035, 0, .22)
+  const firing = progress >= .99995 ? 0 : THREE.MathUtils.clamp(Math.sqrt(arrivals) * .035, 0, .22)
   const response = firing > uniforms.uFire.value ? 18 : 14
   uniforms.uFire.value += (firing - uniforms.uFire.value) * Math.min(1, delta * response)
   if (focusLineMaterial) focusLineMaterial.opacity = .13 + uniforms.uFire.value * .008
@@ -1104,7 +1104,7 @@ function animate(): void {
   uniforms.uTime.value = progress
   uniforms.uPulse.value = elapsed
   uniforms.uSpatialTime.value = spatialElapsed
-  overviewSpinners.forEach(group => { group.rotation.x = spatialElapsed * Number(group.userData.spinRate ?? .1) })
+  overviewSpinners.forEach(group => { group.rotation.y = spatialElapsed * Number(group.userData.spinRate ?? .1) })
   if (corpus) {
     const calendar = progressToCalendar(progress)
     learningMachine?.update(calendar.year + calendar.fraction, elapsed)

@@ -80,7 +80,7 @@ Entering a form does not freeze the chronology. New literature approaches from a
 
 The anatomical or computational scaffold has its own density-balanced structural light: crisp baseline nodes, a low halo, and brighter edges remain visible before any paper arrives. This baseline is independent of dynamic firing, so stronger template legibility does not inflate activation intensity.
 
-Before the timeline reaches 2026, every travelling publication is eased into its settled coordinate. The coda therefore holds a complete bibliography rather than freezing late papers in transit. Archive drift and graph firing decay to zero at the endpoint while the focused specimen may continue its slow horizontal autorotation.
+Every travelling publication remains in motion until the final instant, then eases into its settled coordinate at 2026. The coda therefore holds a complete bibliography rather than freezing late papers in transit. Archive drift and graph firing decay to zero at the endpoint while the focused specimen may continue its slow horizontal autorotation.
 
 Semantic formations are not hand-drawn bubbles. Theme-conditioned HDBSCAN detects density-stable neighborhoods in the global manifold; cluster-specific MeSH/keyword evidence is scored against a fixed, inspectable neuroscience formation ontology so administrative tags cannot become formation names. Emergence is the first repeatable evidence body, scaled to formation size instead of a late fixed percentile. Entity histories require at least three supporting papers. Before stable separation, the focus view names the historically grounded pioneering evidence phase rather than incorrectly calling decades “pre-formation.”
 
@@ -90,7 +90,7 @@ The overview preserves one global stream of 66 formations. Focus mode performs a
 
 Anatomies are uniformly scaled and rotated into specimen chambers; axes are never stretched independently.
 
-In the eight-form overview, every compact scaffold rotates slowly around its own horizontal axis. Its settled publication particles use the same pivot and angular rate, so the semantic body remains registered to the source geometry while revealing its depth. Labels, lanes, and chamber positions do not move.
+In the eight-form overview, every compact scaffold turns slowly left to right around its local vertical axis. Its settled publication particles use the same pivot and angular rate, so the semantic body remains registered to the source geometry while revealing its depth. Labels, lanes, and chamber positions do not move.
 
 | Form | Geometry used in the artwork | Status |
 |---|---|---|
