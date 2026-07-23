@@ -203,9 +203,7 @@ const FOCUS_VERTEX = /* glsl */`
   varying vec3 vColor;
   varying float vAlpha;
   uniform float uTime;
-  uniform float uPulse;
   uniform float uPixelRatio;
-  uniform float uFire;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
     float born = smoothstep(aBirth - .003, aBirth + .004, uTime);
@@ -215,12 +213,11 @@ const FOCUS_VERTEX = /* glsl */`
     vec3 tangent = normalize(cross(axis, vec3(.13, .91, .37)));
     vec3 pos = mix(aOrigin, position, journey);
     pos += tangent * sin(journey * 15.707 + aBirth * 173.0) * .28 * (1.0 - journey);
-    pos *= 1.0 + sin(uPulse * 1.8 + aBirth * 113.0) * .008 * (journey + uFire);
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
-    float surge = (1.0 - journey) * 1.4 + arrival * 2.5 + uFire * .45;
+    float surge = (1.0 - journey) * 1.4 + arrival * 2.5;
     gl_PointSize = (2.6 + aStrength * 3.6 + surge) * uPixelRatio * (3.2 / max(.72, -mv.z));
-    vColor = aColor * (1.0 + arrival * .7 + uFire * .2);
+    vColor = aColor * (1.0 + arrival * .7);
     vAlpha = born * (.26 + aStrength * .54 + arrival * .3);
   }
 `
@@ -235,15 +232,17 @@ const FOCUS_TEMPLATE_VERTEX = /* glsl */`
   uniform float uFire;
   float random(float n){ return fract(sin(n) * 43758.5453123); }
   void main(){
-    float epoch = floor(uPulse * 1.35);
-    float recruitment = step(.72 - aDegree * .18, random(epoch * 13.7 + aNodeSeed * 97.1));
-    float propagated = pow(max(0.0, sin(uPulse * (3.6 + aNodeSeed * 1.9) - aGraphPhase * 6.28318)), 18.0);
-    float firing = uFire * recruitment * propagated * (.55 + aDegree * 1.25);
+    float graphClock = uPulse * .86;
+    float epoch = floor(graphClock);
+    float recruitment = step(.84 - aDegree * .12, random(epoch * 13.7 + aNodeSeed * 97.1));
+    float graphDistance = abs(fract(graphClock) - aGraphPhase);
+    float propagated = exp(-graphDistance * graphDistance * 620.0);
+    float firing = uFire * recruitment * propagated * (.38 + aDegree * .52);
     vec3 pos = position;
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = (1.82 + firing * 1.05) * uPixelRatio * (3.0 / max(.8, -mv.z));
-    vAlpha = .235 + firing * .11;
+    gl_PointSize = (1.82 + firing * .35) * uPixelRatio * (3.0 / max(.8, -mv.z));
+    vAlpha = .235 + firing * .045;
   }
 `
 
@@ -796,17 +795,13 @@ function updateFocus(calendar: ReturnType<typeof progressToCalendar>, elapsed: n
   focusDistance += (focusTargetDistance - focusDistance) * Math.min(1, delta * 8)
   focusCamera.position.z = focusDistance
   if (!dragging) focusRoot.rotation.y += delta * .115
-  focusRoot.position.y = Math.sin(elapsed * .37) * .025
-  const yearlyIntensity = THREE.MathUtils.clamp(
-    (Math.log10(Math.max(10, calendar.frame.query_count)) - 4) / 2,
-    0, 1,
-  )
+  focusRoot.position.y = 0
   let arrivals = 0
   for (const birth of focusBirths) arrivals += Math.exp(-Math.abs(progress - (birth + .036)) * 170)
-  const firing = THREE.MathUtils.clamp(Math.sqrt(arrivals) * .08 + yearlyIntensity * .01, 0, 1)
-  const response = firing > uniforms.uFire.value ? 11 : 2.4
+  const firing = THREE.MathUtils.clamp(Math.sqrt(arrivals) * .035, 0, .22)
+  const response = firing > uniforms.uFire.value ? 18 : 14
   uniforms.uFire.value += (firing - uniforms.uFire.value) * Math.min(1, delta * response)
-  if (focusLineMaterial) focusLineMaterial.opacity = .13 + uniforms.uFire.value * .026
+  if (focusLineMaterial) focusLineMaterial.opacity = .13 + uniforms.uFire.value * .008
   focusHalos.forEach(halo => {
     const formId = corpus.strips[focusedLane].id
     const cluster = corpus.form_clusters?.[formId]?.find(item => item.id === halo.userData.clusterId)
