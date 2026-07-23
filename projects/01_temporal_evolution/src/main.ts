@@ -1119,6 +1119,7 @@ function animate(): void {
     updateInterface(calendar, elapsed)
     updateFocus(calendar, elapsed, delta)
     audio.tick()
+    if (started && !audio.isMuted() && !audio.isRunning()) showSoundState('retry')
   }
   camera.position.x = Math.sin(elapsed * .067) * .025
   camera.position.y = Math.cos(elapsed * .053) * .018
@@ -1132,9 +1133,29 @@ function animate(): void {
   requestAnimationFrame(animate)
 }
 
+const soundButton = $('#sound')
+function showSoundState(state: 'on' | 'off' | 'retry'): void {
+  soundButton.textContent = state === 'on' ? 'SOUND ON' : state === 'off' ? 'SOUND OFF' : 'AUDIO RETRY'
+  soundButton.setAttribute('aria-label', state === 'retry' ? 'Retry audio' : 'Mute or unmute')
+  soundButton.setAttribute('title', state === 'on' ? 'Audio running' : state === 'off' ? 'Audio muted' : 'Click to retry browser audio')
+}
+async function enableSound(): Promise<boolean> {
+  try {
+    const running = await audio.start()
+    if (!running) throw new Error('The browser did not start its audio context')
+    audio.setMuted(false)
+    audio.setPaused(!playing)
+    showSoundState('on')
+    return true
+  } catch (error) {
+    console.error('Audio could not start', error)
+    showSoundState('retry')
+    return false
+  }
+}
 $('#enter').addEventListener('click', () => {
   started = true; playing = true; $('#entry').classList.add('hidden')
-  void audio.start().then(() => audio.setPaused(false))
+  void enableSound()
 })
 function setPlaying(value: boolean): void {
   if (value && progress >= 1 && codaElapsed >= CODA_SECONDS) {
@@ -1142,7 +1163,8 @@ function setPlaying(value: boolean): void {
   }
   playing = value
   $('#play').textContent = playing ? 'PAUSE' : 'PLAY'
-  audio.setPaused(!playing)
+  if (playing && !audio.isMuted() && !audio.isRunning()) void enableSound()
+  else audio.setPaused(!playing)
 }
 $('#play').addEventListener('click', () => setPlaying(!playing))
 $('#timeline').addEventListener('input', event => {
@@ -1155,8 +1177,15 @@ $('#speed').addEventListener('click', () => {
   $('#speed').textContent = `${speed}×`
   audio.setPlaybackSpeed(speed)
 })
-function toggleSound(): void { audio.setMuted(!audio.isMuted()); $('#sound').textContent = audio.isMuted() ? 'SOUND OFF' : 'SOUND ON' }
-$('#sound').addEventListener('click', toggleSound)
+async function toggleSound(): Promise<void> {
+  if (audio.isMuted() || !audio.isRunning()) {
+    await enableSound()
+    return
+  }
+  audio.setMuted(true)
+  showSoundState('off')
+}
+soundButton.addEventListener('click', () => { void toggleSound() })
 async function fullscreen(): Promise<void> { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen() }
 $('#full').addEventListener('click', fullscreen)
 $('#focus-close').addEventListener('click', exitFocus)
@@ -1263,7 +1292,7 @@ canvas.addEventListener('dblclick', () => { if (focusedLane >= 0) resetFocusView
 window.addEventListener('resize', resize)
 window.addEventListener('keydown', event => {
   if (event.code === 'Space') { event.preventDefault(); setPlaying(!playing) }
-  if (event.key.toLowerCase() === 'm') toggleSound()
+  if (event.key.toLowerCase() === 'm') void toggleSound()
   if (event.key.toLowerCase() === 'h') { clean = !clean; document.body.classList.toggle('capture-clean', clean) }
   if (event.key.toLowerCase() === 'f') void fullscreen()
   if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {

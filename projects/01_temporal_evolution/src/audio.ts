@@ -67,12 +67,22 @@ export class HarmonicEngine {
   }
   private borrowed: number[] = [0, 7, 3, 9]
 
-  async start(): Promise<void> {
-    if (this.ctx) {
-      if (this.ctx.state === 'suspended') await this.ctx.resume()
-      return
+  async start(): Promise<boolean> {
+    if (this.ctx && this.ctx.state !== 'closed') {
+      if (this.ctx.state !== 'running') await this.ctx.resume()
+      if (this.ctx.state === 'running') {
+        this.nextBeat = this.ctx.currentTime + .035
+        if (this.master && !this.muted && !this.paused && !this.state.endpoint) {
+          this.master.gain.cancelScheduledValues(this.ctx.currentTime)
+          this.master.gain.setTargetAtTime(this.state.masterGain, this.ctx.currentTime, .045)
+        }
+      }
+      return this.ctx.state === 'running'
     }
-    const ctx = new AudioContext()
+    const AudioContextClass = globalThis.AudioContext
+      ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) throw new Error('Web Audio is not available in this browser')
+    const ctx = new AudioContextClass()
     this.ctx = ctx
     const master = ctx.createGain()
     master.gain.value = this.state.masterGain
@@ -106,8 +116,9 @@ export class HarmonicEngine {
     delay.connect(master)
     this.delay = delay
     this.delayGain = delayGain
-    this.nextBeat = ctx.currentTime + .08
-    if (ctx.state === 'suspended') await ctx.resume()
+    this.nextBeat = ctx.currentTime + .035
+    if (ctx.state !== 'running') await ctx.resume()
+    return ctx.state === 'running'
   }
 
   private impulse(ctx: AudioContext, seconds: number, decay: number): AudioBuffer {
@@ -133,6 +144,7 @@ export class HarmonicEngine {
   }
 
   isMuted(): boolean { return this.muted }
+  isRunning(): boolean { return this.ctx?.state === 'running' }
 
   setPaused(value: boolean): void {
     this.paused = value
@@ -202,7 +214,7 @@ export class HarmonicEngine {
     const bpm = Math.round(54 + frame.entropy * 14 + semanticMotion * 9 + arc * 26 - coda * 16)
     const interconnectedness = Math.max(.08, Math.min(1, frame.interconnectedness ?? (.2 + frame.entropy * .45)))
     const volumeGrowth = Math.max(0, Math.min(1, (Math.log10(Math.max(frame.query_count, 8_000)) - Math.log10(8_000)) / (Math.log10(165_000) - Math.log10(8_000))))
-    const masterGain = .15 + volumeGrowth * .18 + arc * .06 - coda * .015
+    const masterGain = .24 + volumeGrowth * .28 + arc * .08 - coda * .015
     this.state = {
       root,
       mode, bpm, activity: frame.strip_activity, interconnectedness, masterGain, arc, coda, endpoint,
@@ -350,7 +362,7 @@ export class HarmonicEngine {
     const bus = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     const pan = ctx.createStereoPanner()
-    const amplitude = (.018 + this.state.arc * .006 + this.state.interconnectedness * .007) * accent
+    const amplitude = (.028 + this.state.arc * .008 + this.state.interconnectedness * .01) * accent
     const attack = Math.min(.075, duration * .18)
     const releaseStart = Math.max(time + attack + .03, time + duration * .68)
     filter.type = 'lowpass'
@@ -412,7 +424,7 @@ export class HarmonicEngine {
     const ctx = this.ctx
     const bus = ctx.createGain()
     const filter = ctx.createBiquadFilter()
-    const amplitude = .0035 + this.state.interconnectedness * .0075 + this.state.formationDensity * .004 + this.state.arc * .0025
+    const amplitude = .006 + this.state.interconnectedness * .011 + this.state.formationDensity * .005 + this.state.arc * .003
     filter.type = 'lowpass'
     filter.frequency.value = 780 + this.state.interconnectedness * 1_050
     filter.Q.value = .42
@@ -445,7 +457,7 @@ export class HarmonicEngine {
     pan.pan.value = (-0.78 + index * .22) * (1 - convergence * .62)
     out.connect(pan).connect(this.master)
     out.connect(this.reverbSend)
-    const amplitude = .014 + Math.min(.019, activity * .018)
+    const amplitude = .022 + Math.min(.029, activity * .027)
 
     if (index === 6) {
       // Human: a soft three-part formant cloud.
@@ -505,7 +517,7 @@ export class HarmonicEngine {
     filter.frequency.setValueAtTime(520 + this.state.dispersion * 360, now)
     filter.frequency.exponentialRampToValueAtTime(1_450 + this.state.interconnectedness * 1_350, now + duration * .46)
     filter.frequency.exponentialRampToValueAtTime(720 + this.state.coda * 260, now + duration)
-    const amplitude = .012 + this.state.coda * .018 + this.state.formationDensity * .006
+    const amplitude = .018 + this.state.coda * .024 + this.state.formationDensity * .008
     bus.gain.setValueAtTime(.0001, now)
     bus.gain.exponentialRampToValueAtTime(amplitude, now + duration * .26)
     bus.gain.setValueAtTime(amplitude * .82, now + duration * .72)

@@ -158,6 +158,8 @@ The score lasts for the 178-second data ascent itself. Its final fifth is an ext
 
 At the exact final index, all oscillators and the master output stop. The timeline then holds the fully settled visual bibliography in silence for ten seconds before the whole work restarts automatically. Playback speed multiplies the timeline, visual formation clock, and musical scheduler together; seeking kills the old harmonic tail before rebuilding the score from the selected year, and pausing freezes both visual phase and sound rather than letting either timeline drift.
 
+The entry gesture explicitly creates and resumes the browser audio context. If a browser or operating system suspends it, pressing play or the sound control resumes and reschedules the score. The control changes to `AUDIO RETRY` when browser audio cannot start instead of incorrectly reporting that sound is active. The mastered opening level is intentionally audible while the compressor retains headroom for the denser late composition.
+
 ## Temporal landmarks
 
 Restrained archival cues punctuate the data chronology: the 1981 visual-system Nobel, backpropagation, early human fMRI, adult hippocampal neurogenesis, optogenetic control, the Human Connectome Project, the 2011 reproducibility reckoning, the BRAIN Initiative and cerebral organoids, attention architectures, and the 2023/2024 larval and adult fly connectomes. They provide historical orientation; cluster emergence and paper motion still come from the corpus.
