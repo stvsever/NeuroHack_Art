@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#03070b" />
+    <meta name="description" content="A generative audiovisual atlas of neuroscience, 1976–2026." />
+    <meta property="og:title" content="Eight Forms of Intelligence" />
+    <meta property="og:description" content="Fifty years of neuroscience become light, anatomy, and harmony." />
+    <meta property="og:image" content="./public/og-image.png" />
+    <meta property="og:type" content="website" />
+    <title>Eight Forms of Intelligence · 1976—2026</title>
+    <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./artwork.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="field" aria-label="Eight evolving horizontal neural forms"></canvas>
+
+      <header class="masthead chrome">
+        <div class="identity">
+          <span class="eyebrow">A LIVING BIBLIOGRAPHY / 1976—2026</span>
+          <h1>EIGHT FORMS<br />OF INTELLIGENCE</h1>
+        </div>
+        <div class="readout">
+          <span id="topic">MOLECULAR &amp; CELLULAR</span>
+          <strong id="year">1976</strong>
+          <span id="chord">D DORIAN · 64 BPM</span>
+          <span id="publication-count">11,894 MATCHING RECORDS / YEAR</span>
+          <span id="corpus-count">3.13M QUERY UNIVERSE · EMBEDDED SAMPLE LOADING</span>
+        </div>
+      </header>
+
+      <aside id="strip-labels" class="strip-labels chrome" aria-label="Evolutionary forms"></aside>
+      <div id="topic-key" class="topic-key chrome"></div>
+
+      <section id="paper-card" class="paper-card chrome" aria-live="polite">
+        <div class="paper-meta"><span id="paper-year">1976</span><span id="paper-theme">FIELD SIGNALS</span></div>
+        <p id="paper-title">The archive is quiet. Press enter to wake the field.</p>
+        <span id="paper-journal">PUBMED · SEMANTIC TERRITORY, NOT ANATOMICAL LOCALIZATION</span>
+      </section>
+
+      <section id="formation-ticker" class="formation-ticker chrome" aria-live="polite">
+        <span>SEMANTIC FORMATION</span>
+        <b id="formation-name">PRE-FORMATION FIELD</b>
+        <em id="formation-meta">1976 / DENSITY THRESHOLDS ACCUMULATING</em>
+        <small id="landmark">1976 / THE TEMPORAL FIELD OPENS</small>
+      </section>
+
+      <section id="focus-panel" class="focus-panel" aria-live="polite" aria-hidden="true">
+        <header>
+          <span id="focus-index">01 / 08</span>
+          <button id="focus-close" aria-label="Return to all eight forms">RETURN TO EVOLUTION ×</button>
+        </header>
+        <div class="focus-copy">
+          <span id="focus-source">SOURCE-DERIVED MORPHOLOGY</span>
+          <h2 id="focus-title">BASIC NEURAL GRADIENT</h2>
+          <p id="focus-description">A three-dimensional semantic body. Particle placement represents textual affinity, not anatomical localization.</p>
+        </div>
+        <div class="focus-cluster">
+          <span><em id="focus-cluster-scope">ENTITY</em>-SPECIFIC FORMATION / <i id="focus-cluster-count">00</i></span>
+          <b id="focus-cluster-name">PRE-FORMATION FIELD</b>
+          <p id="focus-cluster-terms">The timeline reveals stable semantic neighborhoods as they cross their density threshold.</p>
+          <div class="coherence"><i id="focus-coherence"></i></div>
+          <small id="focus-cluster-meta">EMERGENCE — / COHERENCE —</small>
+        </div>
+        <footer>
+          <span>DRAG · ORBIT</span><span>SCROLL / PINCH · TRAVEL INSIDE</span><span>DOUBLE CLICK · RESET</span><span>ESC · RETURN</span>
+        </footer>
+      </section>
+      <div id="node-tooltip" class="node-tooltip" role="tooltip" aria-hidden="true">
+        <span id="node-tooltip-meta">1976 / MOLECULAR &amp; CELLULAR</span>
+        <b id="node-tooltip-title">PAPER TITLE</b>
+        <small id="node-tooltip-cluster">SEMANTIC FORMATION</small>
+      </div>
+
+      <footer class="transport chrome">
+        <button id="play" aria-label="Play or pause">PAUSE</button>
+        <div class="timeline-wrap">
+          <canvas id="publication-axis" aria-label="PubMed neuroscience records per year, 1976 to 2026"></canvas>
+          <input id="timeline" type="range" min="0" max="1" step="0.0001" value="0" aria-label="Timeline" />
+          <div class="timeline-labels"><span>1976</span><span>1986</span><span>1996</span><span>2006</span><span>2016</span><span>2026</span></div>
+        </div>
+        <button id="speed" aria-label="Playback speed">1×</button>
+        <button id="sound" aria-label="Mute or unmute">SOUND ON</button>
+        <button id="full" aria-label="Fullscreen">FULL</button>
+      </footer>
+
+      <div id="entry" class="entry">
+        <div class="entry-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="entry-copy">
+          <span class="eyebrow">NEUROHACKADEMY · AUDIOVISUAL STUDY II</span>
+          <h2>EIGHT FORMS<br />OF INTELLIGENCE</h2>
+          <p>Millions of records become volume; embedded abstracts become topology.<br />Headphones · fullscreen · 4K display recommended.</p>
+          <button id="enter">ENTER THE FIELD <span>↗</span></button>
+          <small>Space play/pause · ←/→ time · M sound · H clean capture · F fullscreen</small>
+        </div>
+      </div>
+
+      <div id="loading" class="loading"><span></span><em>ASSEMBLING FIVE ATLASES / ONE SEMANTIC SPACE</em></div>
+      <div class="grain" aria-hidden="true"></div>
+    </div>
+    <script src="./offline-data.js"></script>
+    <script src="./artwork.js"></script>
+  </body>
+</html>

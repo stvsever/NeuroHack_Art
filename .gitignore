@@ -1,0 +1,50 @@
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# Assistant and editor state
+.codex/
+**/.codex/
+.claude/
+**/.claude/
+CLAUDE.md
+**/CLAUDE.md
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+
+# Operating system files
+.DS_Store
+**/.DS_Store
+
+# Dependencies and generated output
+node_modules/
+**/node_modules/
+.build/
+**/.build/
+.cache/
+**/.cache/
+dist/
+**/dist/
+coverage/
+**/coverage/
+
+# Python environments and caches
+.venv/
+**/.venv/
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
