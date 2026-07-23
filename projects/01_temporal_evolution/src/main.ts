@@ -461,19 +461,10 @@ function graphFiringAttributes(data: GeometryData, formId: string): {
   return { phase, degree, seed }
 }
 
-const OVERVIEW_SPIN_RATES: Record<string, number> = {
-  gradient: .27,
-  fungal: .235,
-  elegans: .255,
-  drosophila: .29,
-  rodent: .225,
-  macaque: .215,
-  human: .205,
-  ai: .245,
-}
+const OVERVIEW_SPIN_RATE = .36
 
-function overviewSpinRate(formId: string): number {
-  return OVERVIEW_SPIN_RATES[formId] ?? .1
+function overviewSpinRate(_formId: string): number {
+  return OVERVIEW_SPIN_RATE
 }
 
 function addTemplate(data: GeometryData, color: string, id = ''): void {
