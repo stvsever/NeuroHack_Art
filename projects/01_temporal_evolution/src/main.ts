@@ -462,14 +462,14 @@ function graphFiringAttributes(data: GeometryData, formId: string): {
 }
 
 const OVERVIEW_SPIN_RATES: Record<string, number> = {
-  gradient: .14,
-  fungal: .105,
-  elegans: .125,
-  drosophila: .15,
-  rodent: .095,
-  macaque: .085,
-  human: .078,
-  ai: .115,
+  gradient: .27,
+  fungal: .235,
+  elegans: .255,
+  drosophila: .29,
+  rodent: .225,
+  macaque: .215,
+  human: .205,
+  ai: .245,
 }
 
 function overviewSpinRate(formId: string): number {
