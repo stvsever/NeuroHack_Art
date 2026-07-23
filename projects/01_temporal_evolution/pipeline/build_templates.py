@@ -6,6 +6,7 @@ import gzip
 import hashlib
 import io
 import json
+import re
 import struct
 import subprocess
 import tarfile
@@ -14,6 +15,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 from scipy import ndimage
 from sklearn.neighbors import NearestNeighbors
 
@@ -35,10 +37,13 @@ SOURCES = {
         "license": "Source-specific; cite FlyWire",
     },
     "rodent": {
-        "name": "Allen Mouse Common Coordinate Framework v3",
-        "url": "https://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/ccf_2017/annotation_100.nrrd",
-        "space": "Allen CCFv3 (2017), 100 µm annotation",
-        "license": "Allen Institute citation policy",
+        "name": "American Beaver serial histology atlas, specimen #63-168",
+        "url": "https://brains.anatomy.msu.edu/museum/brain/specimens/rodentia/beaver/sections/thumbnail.html",
+        "image_base": "https://brains.anatomy.msu.edu/museum/brain/specimens/rodentia/beaver/sections/",
+        "preparation": "https://www.brainmuseum.org/explore/histoprocedures.html",
+        "usage": "https://brains.anatomy.msu.edu/copyright.html",
+        "space": "Castor canadensis #63-168 serial coronal thionin sections",
+        "license": "Copyrighted source images; free use by permission with collection and NSF credit",
     },
     "macaque": {
         "name": "NIMH Macaque Template v2 symmetric",
@@ -244,11 +249,100 @@ def build_drosophila(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, objec
     return points, edges, {"meshFragments": len(all_points), "rawSha256Combined": combined}
 
 
+def segment_beaver_section(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Return the tissue boundary and full mask from one standardized atlas plate."""
+    image = np.asarray(Image.open(path).convert("RGB"), dtype=np.float32) / 255
+    red, green, blue = image[..., 0], image[..., 1], image[..., 2]
+    chroma = image.max(axis=2) - image.min(axis=2)
+    tissue = (
+        (chroma > 0.035)
+        & (blue > green + 0.018)
+        & (red > green - 0.025)
+        & (image.mean(axis=2) < 0.975)
+    )
+    # Atlas text, ruler and credits sit outside this fixed plate region. This
+    # crop keeps every stained fragment without letting page furniture become anatomy.
+    tissue[:48] = False
+    tissue[-92:] = False
+    tissue[:, :18] = False
+    tissue[:, -18:] = False
+    tissue = ndimage.binary_closing(tissue, iterations=2)
+    labels, count = ndimage.label(tissue)
+    if not count:
+        raise ValueError(f"No stained tissue detected in {path.name}")
+    sizes = np.bincount(labels.ravel())
+    largest = int(sizes[1:].max())
+    keep = np.flatnonzero((sizes >= max(180, int(largest * 0.0025))))
+    keep = keep[keep != 0]
+    mask = np.isin(labels, keep)
+    filled = np.zeros_like(mask)
+    relabeled, component_count = ndimage.label(mask)
+    for component in range(1, component_count + 1):
+        filled |= ndimage.binary_fill_holes(relabeled == component)
+    boundary = filled & ~ndimage.binary_erosion(filled, iterations=2)
+    return boundary, filled
+
+
 def build_rodent(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
-    path = ref / "annotation_100.nrrd"
-    run_curl(SOURCES["rodent"]["url"], path)
-    points, edges = volume_geometry(parse_nrrd(path.read_bytes()), 5000, 100)
-    return points, edges, {"rawFile": path.name, "rawSha256": sha256(path)}
+    atlas_page = ref / "beaver_picture_atlas.html"
+    run_curl(SOURCES["rodent"]["url"], atlas_page)
+    section_numbers = sorted({
+        int(value)
+        for value in re.findall(r"AmBeav63_168Cells(\d+)Lg\.jpg", atlas_page.read_text(errors="replace"))
+    })
+    if len(section_numbers) < 100:
+        raise ValueError(f"Expected a complete beaver atlas series, found {len(section_numbers)} sections")
+
+    section_dir = ref / "beaver_sections"
+    checksums: list[str] = []
+    section_boundaries: list[np.ndarray] = []
+    unavailable_sections: list[int] = []
+    pixels_per_mm = 36.0
+    section_thickness_mm = 0.030
+    for number in section_numbers:
+        path = section_dir / f"AmBeav63_168Cells{number}Lg.jpg"
+        try:
+            run_curl(f"{SOURCES['rodent']['image_base']}{path.name}", path)
+        except subprocess.CalledProcessError:
+            unavailable_sections.append(number)
+            continue
+        boundary, mask = segment_beaver_section(path)
+        rows, columns = np.nonzero(boundary)
+        mask_rows, _ = np.nonzero(mask)
+        if not len(rows) or not len(mask_rows):
+            raise ValueError(f"Empty beaver section after segmentation: {path.name}")
+        # The plates share one in-plane scale. Left/right remains registered to
+        # the image midline while vertical slide placement is centered per section.
+        # Serial number × nominal 30 µm thickness supplies the rostrocaudal axis.
+        vertical_center = float(np.average(mask_rows))
+        lateral_center = (mask.shape[1] - 1) * 0.5
+        rostrocaudal = np.full(len(rows), number * section_thickness_mm, dtype=np.float32)
+        dorsoventral = (vertical_center - rows.astype(np.float32)) / pixels_per_mm
+        lateral = (columns.astype(np.float32) - lateral_center) / pixels_per_mm
+        section_boundaries.append(np.column_stack((rostrocaudal, dorsoventral, lateral)))
+        checksums.append(f"{number}:{sha256(path)}")
+
+    raw = np.concatenate(section_boundaries, axis=0)
+    points = normalize(sample_rows(raw, 5000, 63168))
+    edges = knn_edges(points, 3, 2.45)
+    combined = hashlib.sha256("\n".join(checksums).encode()).hexdigest()
+    return points, edges, {
+        "rawSource": "serial JPEG atlas plates; source imagery is not redistributed",
+        "rawSha256Combined": combined,
+        "atlasPageSha256": sha256(atlas_page),
+        "specimen": "American Beaver (Castor canadensis) #63-168",
+        "plane": "coronal",
+        "stain": "thionin cell-body series",
+        "indexedSectionCount": len(section_numbers),
+        "sectionCount": len(section_boundaries),
+        "sectionRange": [section_numbers[0], section_numbers[-1]],
+        "unavailableSourceSections": unavailable_sections,
+        "documentedSectionThicknessMicrons": [25, 40],
+        "reconstructionSectionThicknessMicrons": 30,
+        "inPlanePixelsPerMillimeter": pixels_per_mm,
+        "reconstruction": "stain-aware tissue segmentation, component fill, serial boundary stacking, uniform scaling",
+        "credit": "Comparative Mammalian Brain Collections; source images produced with National Science Foundation support",
+    }
 
 
 def build_macaque(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:

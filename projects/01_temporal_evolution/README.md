@@ -70,7 +70,7 @@ All papers inhabit one shared semantic space. Global UMAP neighborhoods are blen
 - clinical & disease
 - networks & computation
 - methods & neurotechnology
-- brain ↔ AI convergence
+- artificial intelligence
 
 Topic color is scientific subject matter. Placement inside an anatomical scaffold is an artistic semantic territory, **not a claim of anatomical localization**.
 
@@ -98,12 +98,14 @@ In the eight-form overview, every compact scaffold has a restrained fixed tilt a
 | Fungal network | Apical hyphal growth, lateral branching, resource competition, and anastomosis | Procedural: fungi have no canonical neural atlas |
 | *C. elegans* | OpenWorm c302 NeuroML neuron morphology set | Source-derived |
 | *Drosophila* | 78 FlyWire FAFB neuropil mesh fragments | Source-derived |
-| Rodent | Allen Mouse CCFv3 100 µm annotation boundary | Source-derived |
+| Rodent | American Beaver (*Castor canadensis*) #63-168 serial coronal histology reconstruction | Source-derived |
 | Macaque | NIMH Macaque Template v2 symmetric 0.5 mm brain mask | Source-derived |
 | Human | TemplateFlow MNI152NLin2009cAsym 2 mm brain mask | Source-derived |
 | Artificial intelligence | Time-varying feed-forward learning graph, constrained to its overview lane with an undistorted focus topology | Procedural: a trained system has no anatomical atlas |
 
-The compact browser geometry contains 5,000 source-derived points for each biological reference, plus sparse morphology/surface edges. Raw downloads are checksummed during derivation and deleted afterward. Full provenance, source URLs, coordinate spaces, and hashes are in [`assets/template_provenance.json`](./assets/template_provenance.json).
+The compact browser geometry contains 5,000 source-derived points for each biological reference, plus sparse morphology/surface edges. The RODENT lane uses a stain-aware boundary reconstruction of the [American Beaver #63-168 picture atlas](https://brains.anatomy.msu.edu/museum/brain/specimens/rodentia/beaver/sections/thumbnail.html). Its 123 indexed serial coronal plates retain their shared in-plane scale and documented 25–40 µm sectioning range. The source's high-resolution #1780 plate is unavailable, so the current geometry uses the other 122 plates. A nominal 30 µm interval reconstructs the rostrocaudal axis without independent-axis stretching. The source images are checksummed during derivation and are not redistributed. Credit belongs to the Comparative Mammalian Brain Collections and the National Science Foundation; the collection's [image-use notice](https://brains.anatomy.msu.edu/copyright.html) remains authoritative.
+
+All raw downloads are deleted afterward. Full provenance, source URLs, coordinate spaces, reconstruction parameters, and hashes are in [`assets/template_provenance.json`](./assets/template_provenance.json).
 
 ## Corpus, scale, and embedding
 
@@ -203,7 +205,7 @@ npm run build
 ## Scientific and artistic limits
 
 - Sampling and automatic labels are unvalidated and must not be used as bibliometric ground truth.
-- Rodent publications can include non-mouse species; the Allen mouse CCF is a declared visual scaffold, not a localization assertion.
+- Rodent publications span mice, rats, hamsters, gerbils, voles, and other rodent work. The focused BEAVER body is a declared *Castor canadensis* visual scaffold for that rodent-wide literature, not a species claim or anatomical localization assertion.
 - FlyWire meshes are neuropil morphology, not every neuron in the FAFB connectome.
 - The social-preview image is promotional art and is never used as data or atlas geometry.
 - The work visualizes relationships among texts and forms; it does not claim that ideas literally evolved in a linear biological hierarchy.

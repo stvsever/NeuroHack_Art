@@ -20,6 +20,7 @@ type Corpus = {
 }
 type TemplateEntry = {
   id: string; kind: string; pointCount?: number; pointScale?: number; points?: string; edges?: string; edgeCount?: number
+  name?: string; space?: string
 }
 type Atlas = { version: number; entries: TemplateEntry[] }
 type GeometryData = { points: THREE.Vector3[]; edges: [number, number][] }
@@ -807,11 +808,16 @@ function enterFocus(lane: number): void {
   buildFocusScene(lane)
   const strip = corpus.strips[lane]
   const source = atlas.entries.find(entry => entry.id === strip.id)
+  const isBeaver = strip.id === 'rodent'
   $('#focus-index').textContent = `0${lane + 1} / 08`
-  $('#focus-title').textContent = strip.name.toUpperCase()
-  $('#focus-cluster-scope').textContent = strip.name.toUpperCase()
-  $('#focus-source').textContent = `${source?.kind?.replaceAll('-', ' ').toUpperCase() ?? 'GENERATIVE FORM'} / ${strip.source_short.toUpperCase()}`
-  $('#focus-description').textContent = `${focusPapersFor(strip.id).length.toLocaleString()} publications inhabit this three-dimensional semantic body. Drag to orbit; travel through the surface to inspect its interior. Placement is semantic, not anatomical localization.`
+  $('#focus-title').textContent = isBeaver ? 'BEAVER' : strip.name.toUpperCase()
+  $('#focus-cluster-scope').textContent = isBeaver ? 'RODENT LITERATURE' : strip.name.toUpperCase()
+  $('#focus-source').textContent = isBeaver
+    ? 'SOURCE DERIVED / CASTOR CANADENSIS #63-168'
+    : `${source?.kind?.replaceAll('-', ' ').toUpperCase() ?? 'GENERATIVE FORM'} / ${strip.source_short.toUpperCase()}`
+  $('#focus-description').textContent = isBeaver
+    ? `${focusPapersFor(strip.id).length.toLocaleString()} rodent publications inhabit this American beaver serial-histology scaffold. Drag to orbit; travel through the surface to inspect its interior. Literature placement is semantic, not anatomical localization.`
+    : `${focusPapersFor(strip.id).length.toLocaleString()} publications inhabit this three-dimensional semantic body. Drag to orbit; travel through the surface to inspect its interior. Placement is semantic, not anatomical localization.`
   $('#focus-panel').setAttribute('aria-hidden', 'false')
   document.body.classList.add('focus-active')
   lastFormation = -1

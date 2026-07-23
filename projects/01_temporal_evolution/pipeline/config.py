@@ -81,7 +81,7 @@ STRIPS = [
     {
         "id": "rodent",
         "name": "Rodent",
-        "source_short": "Allen CCFv3",
+        "source_short": "serial atlas",
         "color": "#C77DFF",
         "anchor": "Rodent neuroscience in mouse, rat, hamster, gerbil or vole: mammalian neural circuits, cortex, hippocampus, thalamus, basal ganglia, cerebellum, brainstem, behaviour, electrophysiology and disease models.",
         "positive": [
@@ -153,7 +153,7 @@ THEMES = [
     ("clinical", "Clinical & disease", "Neurological and psychiatric disorders, degeneration, injury, biomarkers, treatment and patient outcomes.", "#72B5FF"),
     ("networks", "Networks & computation", "Neural coding, population dynamics, oscillations, connectomes, computation, information and network theory.", "#61D5F5"),
     ("methods", "Methods & neurotechnology", "Neuroimaging, electrophysiology, microscopy, optogenetics, interfaces, stimulation and analytical methods.", "#79DED0"),
-    ("neuroai", "Brain ↔ AI convergence", "NeuroAI, artificial neural networks as brain models, representational alignment, neuromorphic systems and machine intelligence.", "#E9F5FF"),
+    ("neuroai", "Artificial intelligence", "NeuroAI, artificial neural networks as brain models, representational alignment, neuromorphic systems and machine intelligence.", "#E9F5FF"),
 ]
 
 CIRCLE_OF_FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]
