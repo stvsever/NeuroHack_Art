@@ -133,15 +133,17 @@ const PAPER_VERTEX = /* glsl */`
   uniform float uPixelRatio;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
+    float endpoint = smoothstep(.992, .9995, uTime);
     float born = smoothstep(aBirth - .002, aBirth + .004, uTime);
     float journey = ease(clamp((uTime - aBirth) / .052, 0.0, 1.0));
+    journey = mix(journey, 1.0, endpoint);
     vec3 pos = mix(aStream, aTarget, journey);
     float wave = sin(uPulse * 2.1 + aBirth * 87.0 + position.x * 2.0);
     pos.z += wave * .025 * (1.0 - journey);
     pos.y += sin(journey * 3.14159) * .13 * (1.0 - aStrength);
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
-    float newborn = exp(-abs(uTime - aBirth) * 115.0);
+    float newborn = exp(-abs(uTime - aBirth) * 115.0) * (1.0 - endpoint);
     gl_PointSize = (aSize + newborn * 2.4) * uPixelRatio;
     vColor = aColor * (1.0 + newborn * .55);
     vAlpha = born * (.20 + aStrength * .72 + newborn * .25);
@@ -173,10 +175,11 @@ const ARCHIVE_VERTEX = /* glsl */`
   uniform float uPulse;
   uniform float uPixelRatio;
   void main(){
+    float motionGate = 1.0 - smoothstep(.992, .9995, uTime);
     float born = smoothstep(aBirth - .003, aBirth + .003, uTime);
     float recent = exp(-abs(uTime - aBirth) * 70.0);
     vec3 pos = position;
-    pos.y += sin(position.x * 2.7 + uPulse * .18 + aBirth * 91.0) * .008;
+    pos.y += sin(position.x * 2.7 + uPulse * .18 + aBirth * 91.0) * .008 * motionGate;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
     gl_PointSize = (.78 + aSize * .46 + recent * 2.4) * uPixelRatio;
     vColor = aColor;
@@ -206,9 +209,11 @@ const FOCUS_VERTEX = /* glsl */`
   uniform float uPixelRatio;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
+    float endpoint = smoothstep(.992, .9995, uTime);
     float born = smoothstep(aBirth - .003, aBirth + .004, uTime);
     float journey = ease(clamp((uTime - aBirth) / .036, 0.0, 1.0));
-    float arrival = exp(-abs(uTime - (aBirth + .036)) * 155.0);
+    journey = mix(journey, 1.0, endpoint);
+    float arrival = exp(-abs(uTime - (aBirth + .036)) * 155.0) * (1.0 - endpoint);
     vec3 axis = normalize(aOrigin + vec3(.001, .002, .003));
     vec3 tangent = normalize(cross(axis, vec3(.13, .91, .37)));
     vec3 pos = mix(aOrigin, position, journey);
@@ -798,7 +803,7 @@ function updateFocus(calendar: ReturnType<typeof progressToCalendar>, elapsed: n
   focusRoot.position.y = 0
   let arrivals = 0
   for (const birth of focusBirths) arrivals += Math.exp(-Math.abs(progress - (birth + .036)) * 170)
-  const firing = THREE.MathUtils.clamp(Math.sqrt(arrivals) * .035, 0, .22)
+  const firing = progress >= .9995 ? 0 : THREE.MathUtils.clamp(Math.sqrt(arrivals) * .035, 0, .22)
   const response = firing > uniforms.uFire.value ? 18 : 14
   uniforms.uFire.value += (firing - uniforms.uFire.value) * Math.min(1, delta * response)
   if (focusLineMaterial) focusLineMaterial.opacity = .13 + uniforms.uFire.value * .008
@@ -925,7 +930,7 @@ function updateInterface(calendar: ReturnType<typeof progressToCalendar>, elapse
   $('#publication-count').textContent = `${calendar.frame.query_count.toLocaleString()} MATCHING RECORDS / YEAR`
   $('#timeline').style.setProperty('--progress', `${progress * 100}%`)
   ;($('#timeline') as HTMLInputElement).value = String(progress)
-  audio.update(calendar.frame); $('#chord').textContent = audio.label()
+  audio.update(calendar.frame, progress); $('#chord').textContent = audio.label()
   const aiStage = document.querySelector<HTMLElement>('.strip-label[data-strip="ai"] span')
   if (aiStage && learningMachine) aiStage.textContent = learningMachine.stageName
   const yearPapers = papersByYear.get(calendar.year) ?? []
