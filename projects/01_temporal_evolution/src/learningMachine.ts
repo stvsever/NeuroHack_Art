@@ -116,11 +116,11 @@ export class LearningMachine {
     this.linePositions = new Float32Array(maximumEdges * 6)
     const pg = new THREE.BufferGeometry()
     pg.setAttribute('position', new THREE.BufferAttribute(this.positions, 3))
-    const pm = new THREE.PointsMaterial({ color: 0x75ecff, size: 2.0, sizeAttenuation: false, transparent: true, opacity: .72, blending: THREE.AdditiveBlending, depthWrite: false })
+    const pm = new THREE.PointsMaterial({ color: 0x75ecff, size: 1.2, sizeAttenuation: false, transparent: true, opacity: .16, blending: THREE.NormalBlending, depthWrite: false })
     this.points = new THREE.Points(pg, pm)
     const lg = new THREE.BufferGeometry()
     lg.setAttribute('position', new THREE.BufferAttribute(this.linePositions, 3))
-    const lm = new THREE.LineBasicMaterial({ color: 0x58c7e7, transparent: true, opacity: .18, blending: THREE.AdditiveBlending, depthWrite: false })
+    const lm = new THREE.LineBasicMaterial({ color: 0x58c7e7, transparent: true, opacity: .035, blending: THREE.NormalBlending, depthWrite: false })
     this.lines = new THREE.LineSegments(lg, lm)
     this.group.add(this.lines, this.points)
     this.group.position.set(x, y, .04)
@@ -161,7 +161,7 @@ export class LearningMachine {
     })
     ;(this.points.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
     ;(this.lines.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
-    ;(this.points.material as THREE.PointsMaterial).opacity = .68 + Math.sin(pulse * 2.3) * .045
+    ;(this.points.material as THREE.PointsMaterial).opacity = .16 + Math.sin(pulse * 2.3) * .012
     this.stageName = STAGE_NAMES[stage]
     if (this.destinations.length) {
       for (let i = 0; i < N; i++) this.destinations[i].set(

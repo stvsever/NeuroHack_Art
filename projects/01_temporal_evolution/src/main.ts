@@ -434,24 +434,24 @@ function addTemplate(data: GeometryData, color: string, id = ''): void {
   const pointArray = new Float32Array(data.points.length * 3)
   data.points.forEach((p, i) => p.toArray(pointArray, i * 3))
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pointArray, 3))
-  const densityBalance = THREE.MathUtils.clamp(Math.sqrt(760 / Math.max(1, data.points.length)), .72, 1.12)
-  const emphasis = id === 'ai' ? .96 : 1
+  const densityBalance = THREE.MathUtils.clamp(Math.sqrt(280 / Math.max(1, data.points.length)), .24, .9)
+  const emphasis = id === 'ai' ? .75 : 1
   const dots = new THREE.Points(pg, new THREE.PointsMaterial({
-    color, size: 1.58 * emphasis, sizeAttenuation: false, transparent: true,
-    opacity: .39 * densityBalance, blending: THREE.AdditiveBlending, depthWrite: false,
+    color, size: 1.1 * emphasis, sizeAttenuation: false, transparent: true,
+    opacity: .14 * densityBalance, blending: THREE.NormalBlending, depthWrite: false,
   }))
   scene.add(dots)
   const glow = new THREE.Points(pg, new THREE.PointsMaterial({
-    color, size: 3.2 * emphasis, sizeAttenuation: false, transparent: true,
-    opacity: .052 * densityBalance, blending: THREE.AdditiveBlending, depthWrite: false,
+    color, size: 2.1 * emphasis, sizeAttenuation: false, transparent: true,
+    opacity: .005 * densityBalance, blending: THREE.AdditiveBlending, depthWrite: false,
   }))
   scene.add(glow)
   const lineArray = new Float32Array(data.edges.length * 6)
   data.edges.forEach(([a, b], i) => { data.points[a]?.toArray(lineArray, i * 6); data.points[b]?.toArray(lineArray, i * 6 + 3) })
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lineArray, 3))
   scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({
-    color, transparent: true, opacity: .125 * densityBalance,
-    blending: THREE.AdditiveBlending, depthWrite: false,
+    color, transparent: true, opacity: .035 * densityBalance,
+    blending: THREE.NormalBlending, depthWrite: false,
   })))
 }
 
