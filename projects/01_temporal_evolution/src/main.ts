@@ -63,6 +63,8 @@ const CHAMBER_X = 5.18
 const STREAM_START = -5.72
 const STREAM_END = 3.05
 const CODA_SECONDS = 10
+const OVERVIEW_TILT = -.14
+const OVERVIEW_YAW_SWEEP = .42
 const audio = new HarmonicEngine()
 const clock = new THREE.Clock()
 const uniforms = {
@@ -70,6 +72,8 @@ const uniforms = {
   uPulse: { value: 0 },
   uSpatialTime: { value: 0 },
   uChamberX: { value: CHAMBER_X },
+  uOverviewTilt: { value: OVERVIEW_TILT },
+  uOverviewYawSweep: { value: OVERVIEW_YAW_SWEEP },
   uPixelRatio: { value: renderer.getPixelRatio() },
   uFire: { value: 0 },
 }
@@ -130,6 +134,7 @@ const PAPER_VERTEX = /* glsl */`
   attribute float aBirth;
   attribute float aStrength;
   attribute float aSize;
+  attribute float aLaneY;
   attribute float aSpinRate;
   varying vec3 vColor;
   varying float vAlpha;
@@ -137,6 +142,8 @@ const PAPER_VERTEX = /* glsl */`
   uniform float uPulse;
   uniform float uSpatialTime;
   uniform float uChamberX;
+  uniform float uOverviewTilt;
+  uniform float uOverviewYawSweep;
   uniform float uPixelRatio;
   float ease(float t){ return t*t*(3.0-2.0*t); }
   void main(){
@@ -144,13 +151,19 @@ const PAPER_VERTEX = /* glsl */`
     float born = smoothstep(aBirth - .002, aBirth + .004, uTime);
     float journey = ease(clamp((uTime - aBirth) / .052, 0.0, 1.0));
     journey = mix(journey, 1.0, endpoint);
-    float angle = uSpatialTime * aSpinRate;
+    float angle = sin(uSpatialTime * aSpinRate) * uOverviewYawSweep;
     float cosine = cos(angle);
     float sine = sin(angle);
+    float tiltCosine = cos(uOverviewTilt);
+    float tiltSine = sin(uOverviewTilt);
     vec3 target = aTarget;
     float localX = target.x - uChamberX;
-    target.x = uChamberX + localX * cosine + target.z * sine;
-    target.z = -localX * sine + target.z * cosine;
+    float localY = target.y - aLaneY;
+    float tiltedY = localY * tiltCosine - target.z * tiltSine;
+    float tiltedZ = localY * tiltSine + target.z * tiltCosine;
+    target.x = uChamberX + localX * cosine + tiltedZ * sine;
+    target.y = aLaneY + tiltedY;
+    target.z = -localX * sine + tiltedZ * cosine;
     vec3 pos = mix(aStream, target, journey);
     float wave = sin(uPulse * 2.1 + aBirth * 87.0 + position.x * 2.0);
     pos.z += wave * .025 * (1.0 - journey);
@@ -605,7 +618,7 @@ function drawPublicationAxis(activeIndex: number): void {
 
 function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
   const streams: number[] = [], targets: number[] = [], colors: number[] = [], births: number[] = [], strengths: number[] = [], sizes: number[] = []
-  const spinRates: number[] = []
+  const laneYs: number[] = [], spinRates: number[] = []
   const color = new THREE.Color()
   corpus.papers.forEach(paper => {
     const entries = Object.entries(paper.strips).sort((a, b) => b[1] - a[1])
@@ -628,7 +641,7 @@ function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
       color.set(corpus.themes[Math.max(0, topic)]?.color ?? '#ffffff')
       colors.push(color.r, color.g, color.b)
       births.push(birth); strengths.push(strength); sizes.push(1.2 + paper.density * 1.9 + strength * 1.4)
-      spinRates.push(overviewSpinRate(stripId))
+      laneYs.push(laneY); spinRates.push(overviewSpinRate(stripId))
     })
   })
   const geometry = new THREE.BufferGeometry()
@@ -639,6 +652,7 @@ function buildPaperCloud(destinations: Record<string, THREE.Vector3[]>): void {
   geometry.setAttribute('aBirth', new THREE.Float32BufferAttribute(births, 1))
   geometry.setAttribute('aStrength', new THREE.Float32BufferAttribute(strengths, 1))
   geometry.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1))
+  geometry.setAttribute('aLaneY', new THREE.Float32BufferAttribute(laneYs, 1))
   geometry.setAttribute('aSpinRate', new THREE.Float32BufferAttribute(spinRates, 1))
   const material = new THREE.ShaderMaterial({
     vertexShader: PAPER_VERTEX, fragmentShader: PAPER_FRAGMENT, uniforms,
@@ -1104,7 +1118,10 @@ function animate(): void {
   uniforms.uTime.value = progress
   uniforms.uPulse.value = elapsed
   uniforms.uSpatialTime.value = spatialElapsed
-  overviewSpinners.forEach(group => { group.rotation.y = spatialElapsed * Number(group.userData.spinRate ?? .1) })
+  overviewSpinners.forEach(group => {
+    group.rotation.x = OVERVIEW_TILT
+    group.rotation.y = Math.sin(spatialElapsed * Number(group.userData.spinRate ?? .1)) * OVERVIEW_YAW_SWEEP
+  })
   if (corpus) {
     const calendar = progressToCalendar(progress)
     learningMachine?.update(calendar.year + calendar.fraction, elapsed)

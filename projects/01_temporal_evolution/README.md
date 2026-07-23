@@ -90,7 +90,7 @@ The overview preserves one global stream of 66 formations. Focus mode performs a
 
 Anatomies are uniformly scaled and rotated into specimen chambers; axes are never stretched independently.
 
-In the eight-form overview, every compact scaffold turns slowly left to right around its local vertical axis. Its settled publication particles use the same pivot and angular rate, so the semantic body remains registered to the source geometry while revealing its depth. Labels, lanes, and chamber positions do not move.
+In the eight-form overview, every compact scaffold has a restrained fixed tilt and turns slowly left to right through a front-biased arc. Avoiding the anatomies' narrow side profiles preserves their apparent volume. Settled publication particles use the same tilt, pivot, and angular motion, so the semantic body remains registered to the source geometry while revealing its depth. Labels, lanes, and chamber positions do not move.
 
 | Form | Geometry used in the artwork | Status |
 |---|---|---|
