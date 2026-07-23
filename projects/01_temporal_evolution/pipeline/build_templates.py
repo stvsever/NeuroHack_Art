@@ -37,12 +37,13 @@ SOURCES = {
         "license": "Source-specific; cite FlyWire",
     },
     "rodent": {
-        "name": "American Beaver serial histology atlas, specimen #63-168",
+        "name": "American Beaver whole-brain photographs and serial histology atlas, specimen #63-168",
         "url": "https://brains.anatomy.msu.edu/museum/brain/specimens/rodentia/beaver/sections/thumbnail.html",
         "image_base": "https://brains.anatomy.msu.edu/museum/brain/specimens/rodentia/beaver/sections/",
+        "whole_brain": "https://brains.anatomy.msu.edu/museum/brain/specimens/rodentia/beaver/brain/Beaver631686clr.jpg",
         "preparation": "https://www.brainmuseum.org/explore/histoprocedures.html",
         "usage": "https://brains.anatomy.msu.edu/copyright.html",
-        "space": "Castor canadensis #63-168 serial coronal thionin sections",
+        "space": "Castor canadensis #63-168 photo-calibrated cranial encephalon",
         "license": "Copyrighted source images; free use by permission with collection and NSF credit",
     },
     "macaque": {
@@ -283,9 +284,71 @@ def segment_beaver_section(path: Path) -> tuple[np.ndarray, np.ndarray]:
     return boundary, filled
 
 
+def segment_beaver_photograph(image: np.ndarray, crop: tuple[slice, slice]) -> np.ndarray:
+    """Segment one specimen view from the collection's fixed whole-brain composite."""
+    view = image[crop].astype(np.float32) / 255
+    red, green, blue = view[..., 0], view[..., 1], view[..., 2]
+    tissue = (red > 0.22) & (green > 0.12) & (red > blue * 0.92)
+    tissue = ndimage.binary_closing(tissue, iterations=2)
+    labels, count = ndimage.label(tissue)
+    if not count:
+        raise ValueError("No beaver tissue detected in whole-brain photograph")
+    sizes = np.bincount(labels.ravel())
+    largest = int(sizes[1:].max())
+    keep = np.flatnonzero(sizes >= max(24, int(largest * 0.006)))
+    keep = keep[keep != 0]
+    return ndimage.binary_fill_holes(np.isin(labels, keep))
+
+
+def beaver_photo_profiles(path: Path) -> tuple[dict[int, tuple[float, float]], dict[int, tuple[float, float]]]:
+    """Return dorsoventral and left-right envelopes in shared photograph pixels."""
+    image = np.asarray(Image.open(path).convert("RGB"))
+    if image.shape[:2] != (503, 504):
+        raise ValueError(f"Unexpected beaver whole-brain photograph dimensions: {image.shape[:2]}")
+
+    # Left lateral and dorsal views are from the same specimen and photographic
+    # scale. The posterior limit stops immediately after the cerebellum and
+    # short medulla, before the visibly exposed spinal cord.
+    lateral_crop = (slice(48, 166), slice(4, 252))
+    dorsal_crop = (slice(316, 442), slice(4, 252))
+    lateral = segment_beaver_photograph(image, lateral_crop)
+    dorsal = segment_beaver_photograph(image, dorsal_crop)
+    anterior_limit, posterior_limit = 13, 188
+
+    def profiles(mask: np.ndarray, crop: tuple[slice, slice]) -> dict[int, tuple[float, float]]:
+        row_offset = int(crop[0].start or 0)
+        column_offset = int(crop[1].start or 0)
+        result: dict[int, tuple[float, float]] = {}
+        for absolute_column in range(anterior_limit, posterior_limit + 1):
+            local_column = absolute_column - column_offset
+            rows = np.flatnonzero(mask[:, local_column])
+            if len(rows):
+                result[absolute_column] = (
+                    float(rows.min() + row_offset),
+                    float(rows.max() + row_offset),
+                )
+        return result
+
+    lateral_profiles = profiles(lateral, lateral_crop)
+    dorsal_profiles = profiles(dorsal, dorsal_crop)
+    shared = sorted(set(lateral_profiles) & set(dorsal_profiles))
+    if len(shared) < 150:
+        raise ValueError(f"Incomplete beaver photo envelope: only {len(shared)} shared columns")
+
+    def smooth(values: dict[int, tuple[float, float]]) -> dict[int, tuple[float, float]]:
+        columns = np.asarray(shared)
+        lower = ndimage.gaussian_filter1d(np.asarray([values[x][0] for x in shared]), 1.1)
+        upper = ndimage.gaussian_filter1d(np.asarray([values[x][1] for x in shared]), 1.1)
+        return {int(x): (float(a), float(b)) for x, a, b in zip(columns, lower, upper)}
+
+    return smooth(lateral_profiles), smooth(dorsal_profiles)
+
+
 def build_rodent(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
     atlas_page = ref / "beaver_picture_atlas.html"
+    whole_brain = ref / "Beaver631686clr.jpg"
     run_curl(SOURCES["rodent"]["url"], atlas_page)
+    run_curl(SOURCES["rodent"]["whole_brain"], whole_brain)
     section_numbers = sorted({
         int(value)
         for value in re.findall(r"AmBeav63_168Cells(\d+)Lg\.jpg", atlas_page.read_text(errors="replace"))
@@ -295,10 +358,9 @@ def build_rodent(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
 
     section_dir = ref / "beaver_sections"
     checksums: list[str] = []
-    section_boundaries: list[np.ndarray] = []
+    section_contours: list[tuple[int, np.ndarray, tuple[int, int]]] = []
     unavailable_sections: list[int] = []
-    pixels_per_mm = 36.0
-    section_thickness_mm = 0.030
+    encephalon_section_limit = 2180
     for number in section_numbers:
         path = section_dir / f"AmBeav63_168Cells{number}Lg.jpg"
         try:
@@ -311,36 +373,66 @@ def build_rodent(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
         mask_rows, _ = np.nonzero(mask)
         if not len(rows) or not len(mask_rows):
             raise ValueError(f"Empty beaver section after segmentation: {path.name}")
-        # The plates share one in-plane scale. Left/right remains registered to
-        # the image midline while vertical slide placement is centered per section.
-        # Serial number × nominal 30 µm thickness supplies the rostrocaudal axis.
-        vertical_center = float(np.average(mask_rows))
-        lateral_center = (mask.shape[1] - 1) * 0.5
-        rostrocaudal = np.full(len(rows), number * section_thickness_mm, dtype=np.float32)
-        dorsoventral = (vertical_center - rows.astype(np.float32)) / pixels_per_mm
-        lateral = (columns.astype(np.float32) - lateral_center) / pixels_per_mm
-        section_boundaries.append(np.column_stack((rostrocaudal, dorsoventral, lateral)))
+        if number <= encephalon_section_limit:
+            section_contours.append((
+                number,
+                np.column_stack((rows, columns)).astype(np.float32),
+                mask.shape,
+            ))
         checksums.append(f"{number}:{sha256(path)}")
 
-    raw = np.concatenate(section_boundaries, axis=0)
+    lateral_profiles, dorsal_profiles = beaver_photo_profiles(whole_brain)
+    photo_columns = sorted(set(lateral_profiles) & set(dorsal_profiles))
+    anterior_photo, posterior_photo = photo_columns[0], photo_columns[-1]
+    lateral_center = float(np.mean([(a + b) * 0.5 for a, b in lateral_profiles.values()]))
+    dorsal_center = float(np.mean([(a + b) * 0.5 for a, b in dorsal_profiles.values()]))
+    max_serial_width = max(float(contour[:, 1].max() - contour[:, 1].min()) for _, contour, _ in section_contours)
+    max_photo_width = max(bottom - top for top, bottom in dorsal_profiles.values())
+    photo_registration_scale = max_photo_width / max(max_serial_width, 1)
+
+    # Each point remains an actual boundary pixel from a coronal beaver section.
+    # The specimen photographs calibrate the AP span and one shared in-plane
+    # scale. They also provide the subtle dorsal and lateral center curves. No
+    # per-section shape fitting or independent-axis stretching is applied.
+    contour_points: list[np.ndarray] = []
+    first_section = min(number for number, _, _ in section_contours)
+    for number, contour, shape in section_contours:
+        progress = (number - first_section) / max(encephalon_section_limit - first_section, 1)
+        photo_column = int(round(anterior_photo + progress * (posterior_photo - anterior_photo)))
+        photo_column = min(photo_columns, key=lambda value: abs(value - photo_column))
+        dv_center = (lateral_profiles[photo_column][0] + lateral_profiles[photo_column][1]) * 0.5 - lateral_center
+        lr_center = (dorsal_profiles[photo_column][0] + dorsal_profiles[photo_column][1]) * 0.5 - dorsal_center
+        row_center = float(np.median(contour[:, 0]))
+        column_center = (shape[1] - 1) * 0.5
+        sample_count = 85 if 1560 <= number <= 2040 else 40
+        sampled = sample_rows(contour, sample_count, 63168 + number)
+        contour_points.append(np.column_stack((
+            np.full(len(sampled), float(photo_column), dtype=np.float32),
+            dv_center - (sampled[:, 0] - row_center) * photo_registration_scale,
+            lr_center + (sampled[:, 1] - column_center) * photo_registration_scale,
+        )))
+
+    raw = np.concatenate(contour_points, axis=0)
     points = normalize(sample_rows(raw, 5000, 63168))
-    edges = knn_edges(points, 3, 2.45)
+    edges = knn_edges(points, 4, 2.45)
     combined = hashlib.sha256("\n".join(checksums).encode()).hexdigest()
     return points, edges, {
-        "rawSource": "serial JPEG atlas plates; source imagery is not redistributed",
+        "rawSource": "whole-brain photograph and serial JPEG atlas plates; source imagery is not redistributed",
         "rawSha256Combined": combined,
+        "wholeBrainSha256": sha256(whole_brain),
         "atlasPageSha256": sha256(atlas_page),
         "specimen": "American Beaver (Castor canadensis) #63-168",
         "plane": "coronal",
         "stain": "thionin cell-body series",
         "indexedSectionCount": len(section_numbers),
-        "sectionCount": len(section_boundaries),
+        "sectionCount": len(section_contours),
         "sectionRange": [section_numbers[0], section_numbers[-1]],
+        "encephalonSectionRange": [first_section, encephalon_section_limit],
         "unavailableSourceSections": unavailable_sections,
         "documentedSectionThicknessMicrons": [25, 40],
-        "reconstructionSectionThicknessMicrons": 30,
-        "inPlanePixelsPerMillimeter": pixels_per_mm,
-        "reconstruction": "stain-aware tissue segmentation, component fill, serial boundary stacking, uniform scaling",
+        "photoEnvelopeColumns": [anterior_photo, posterior_photo],
+        "photoRegistrationScale": round(photo_registration_scale, 8),
+        "reconstruction": "spinal-cord exclusion, whole-brain photo calibration, shared-scale serial contours, cerebellar folia oversampling, uniform final scaling",
         "credit": "Comparative Mammalian Brain Collections; source images produced with National Science Foundation support",
     }
 
@@ -368,6 +460,7 @@ def build_human(ref: Path) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Derive compact art geometry from authoritative morphology/atlas sources.")
     parser.add_argument("--keep-downloads", action="store_true", help="Keep temporary source downloads for inspection.")
+    parser.add_argument("--only", choices=("elegans", "drosophila", "rodent", "macaque", "human"))
     args = parser.parse_args()
     ensure_dirs()
     ref = BUILD_DIR / "reference"
@@ -382,7 +475,7 @@ def main() -> None:
         "macaque": build_macaque,
         "human": build_human,
     }
-    entries: list[dict[str, object]] = [
+    static_entries: list[dict[str, object]] = [
         {
             "id": "gradient", "kind": "procedural-field", "name": "Excitable neural gradient",
             "space": None, "reason": "A neural gradient is a mechanism, not an atlas-bearing organism.",
@@ -392,19 +485,28 @@ def main() -> None:
             "space": None, "reason": "Fungi have distributed signalling but no canonical neural template.",
         },
     ]
-    for key, builder in builders.items():
+    existing_path = public / "templates.json"
+    if args.only and existing_path.exists():
+        entries = json.loads(existing_path.read_text(encoding="utf-8"))["entries"]
+    else:
+        entries = static_entries
+    selected = {args.only: builders[args.only]} if args.only else builders
+    for key, builder in selected.items():
         print(f"Deriving {key} geometry…", flush=True)
         points, edges, extra = builder(ref)
         entry = {"id": key, "kind": "source-derived", **SOURCES[key], **encode_geometry(points, edges), **extra}
-        entries.append(entry)
+        entries = [candidate for candidate in entries if candidate["id"] != key]
+        insert_index = ("gradient", "fungal", "elegans", "drosophila", "rodent", "macaque", "human", "ai").index(key)
+        entries.insert(min(insert_index, len(entries)), entry)
         print(f"  {len(points):,} points / {len(edges):,} edges", flush=True)
-    entries.append(
-        {
-            "id": "ai", "kind": "procedural-learning-system", "name": "The learning machine",
-            "space": None,
-            "reason": "Artificial intelligence has no anatomical atlas; its visible body is a trained topology that evolves from perceptron to attention and mixture-of-experts.",
-        }
-    )
+    if not any(entry["id"] == "ai" for entry in entries):
+        entries.append(
+            {
+                "id": "ai", "kind": "procedural-learning-system", "name": "The learning machine",
+                "space": None,
+                "reason": "Artificial intelligence has no anatomical atlas; its visible body is a trained topology that evolves from perceptron to attention and mixture-of-experts.",
+            }
+        )
     result = {
         "version": 2,
         "principle": "Source-derived geometry is morphological scaffolding. Semantic paper positions are artistic territories, never claims of anatomical localization.",

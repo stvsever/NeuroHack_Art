@@ -690,6 +690,11 @@ function focusPapersFor(stripId: string): Paper[] {
   })
 }
 
+function setInitialFocusRotation(stripId?: string): void {
+  if (stripId === 'rodent') focusRoot.rotation.set(.24, -.24, 0)
+  else focusRoot.rotation.set(.06, -.18, 0)
+}
+
 function buildFocusScene(lane: number): void {
   disposeFocusScene()
   const strip = corpus.strips[lane]
@@ -797,7 +802,7 @@ function buildFocusScene(lane: number): void {
     halo.userData.emergence = cluster.emergence_year
     focusRoot.add(halo); focusHalos.push(halo)
   })
-  focusRoot.rotation.set(.06, -.18, 0)
+  setInitialFocusRotation(strip.id)
 }
 
 function enterFocus(lane: number): void {
@@ -816,7 +821,7 @@ function enterFocus(lane: number): void {
     ? 'SOURCE DERIVED / CASTOR CANADENSIS #63-168'
     : `${source?.kind?.replaceAll('-', ' ').toUpperCase() ?? 'GENERATIVE FORM'} / ${strip.source_short.toUpperCase()}`
   $('#focus-description').textContent = isBeaver
-    ? `${focusPapersFor(strip.id).length.toLocaleString()} rodent publications inhabit this American beaver serial-histology scaffold. Drag to orbit; travel through the surface to inspect its interior. Literature placement is semantic, not anatomical localization.`
+    ? `${focusPapersFor(strip.id).length.toLocaleString()} rodent publications inhabit this American beaver whole-brain and serial-histology scaffold. Drag to orbit; travel through the surface to inspect its interior. Literature placement is semantic, not anatomical localization.`
     : `${focusPapersFor(strip.id).length.toLocaleString()} publications inhabit this three-dimensional semantic body. Drag to orbit; travel through the surface to inspect its interior. Placement is semantic, not anatomical localization.`
   $('#focus-panel').setAttribute('aria-hidden', 'false')
   document.body.classList.add('focus-active')
@@ -834,7 +839,7 @@ function exitFocus(): void {
 
 function resetFocusView(): void {
   focusTargetDistance = 4.2
-  focusRoot.rotation.set(.06, -.18, 0)
+  setInitialFocusRotation(corpus.strips[focusedLane]?.id)
 }
 
 function pioneeringLabel(formId: string, year: number, dominantTheme: string): string {
