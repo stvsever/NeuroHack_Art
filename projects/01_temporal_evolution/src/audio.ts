@@ -281,7 +281,9 @@ export class HarmonicEngine {
     const chord = tension > .62 && phrase === 2
       ? [localRoot, localRoot + 1, localRoot + 4, localRoot + 6]
       : [localRoot, localRoot + 2, localRoot + 4, localRoot + 6]
-    const harmonicPull = Math.max(Math.pow(this.state.interconnectedness, 1.35), this.state.coda * .985)
+    const harmonicPull = this.state.coda > .72
+      ? 1
+      : Math.max(Math.pow(this.state.interconnectedness, 1.35), this.state.coda * .985)
     for (let voice = 0; voice < 8; voice++) {
       const activity = Math.max(.04, this.state.activity[voice] ?? .05)
       const density = Math.min(1, .08 + activity * 1.04 + this.state.arc * .2 + this.state.formationDensity * .14 + this.state.coda * .18)
@@ -439,7 +441,7 @@ export class HarmonicEngine {
     const ctx = this.ctx
     const out = ctx.createGain()
     const pan = ctx.createStereoPanner()
-    const convergence = Math.max(this.state.interconnectedness, this.state.coda * .985)
+    const convergence = this.state.coda > .72 ? 1 : Math.max(this.state.interconnectedness, this.state.coda * .985)
     pan.pan.value = (-0.78 + index * .22) * (1 - convergence * .62)
     out.connect(pan).connect(this.master)
     out.connect(this.reverbSend)
@@ -520,7 +522,7 @@ export class HarmonicEngine {
       const partial = ctx.createGain()
       oscillator.type = index < 2 ? 'sine' : 'triangle'
       oscillator.frequency.value = this.frequency(midi)
-      oscillator.detune.setValueAtTime((index - 2) * 4.2 * (1 - this.state.coda), now)
+      oscillator.detune.setValueAtTime(this.state.coda > .72 ? 0 : (index - 2) * 4.2 * (1 - this.state.coda), now)
       oscillator.detune.linearRampToValueAtTime(0, now + duration * .72)
       partial.gain.value = [1, .58, .42, .25, .18][index]
       oscillator.connect(partial).connect(bus)
